@@ -1,0 +1,13 @@
+maintainer: Dhanoop Karunakaran
+gmail:
+  debug: False
+  subjects:
+    - 'FDC Invoice Dev'
+    - 'FDC Receipt Dev'
+  senders:
+    - 'mariaka1@me.com'
+  scopes:
+    - 'https://www.googleapis.com/auth/gmail.readonly'
+ollama:
+  host: 'http://192.168.0.160:11434'
+  model: 'llama3.2'
