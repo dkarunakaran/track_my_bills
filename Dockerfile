@@ -16,6 +16,15 @@ RUN pip install requests==2.32.3
 RUN pip install flask==3.0.3
 RUN pip install ollama==0.3.2
 
+RUN pip install pypdf
+
+# Langchian
+RUN pip install langchain
+RUN pip install langchain-chroma
+RUN pip install langchain-ollama
+RUN pip install langchain-huggingface
+
+
 WORKDIR /app
 
 CMD ["/bin/bash"]

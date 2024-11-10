@@ -8,7 +8,6 @@ import os.path
 import base64
 from bs4 import BeautifulSoup
 import yaml
-from ollama_service import OllamaService
 
 class Download:
   def __init__(self):
@@ -19,8 +18,6 @@ class Download:
     
     # If modifying these scopes, delete the file token.json.
     SCOPES = self.cfg['gmail']['scopes']
-
-    self.ollama_service = OllamaService()
 
     # Authenticate
     self.creds = None
@@ -52,7 +49,7 @@ class Download:
       # request a list of all the messages
       # We can also pass maxResults to get any number of emails. Like this:
       # result = service.users().messages().list(maxResults=200, userId='me').execute()
-      result = service.users().messages().list(maxResults=3, userId='me').execute()
+      result = service.users().messages().list(maxResults=1, userId='me').execute()
       
       messages = result.get('messages')
       
@@ -64,6 +61,9 @@ class Download:
         # Get the message from its id
         txt = service.users().messages().get(userId='me', id=msg['id']).execute()
         # Use try-except to avoid any Errors
+
+        multiple_pdf_data = []
+        path = None
         try:
           # Get value of 'payload' from dictionary 'txt'
           payload = txt['payload']
@@ -85,6 +85,7 @@ class Download:
 
           if proceed == True:
             for part in payload['parts']:
+              print(part)
               if part['mimeType'] == 'text/plain':
                 if 'data' in part['body']:
                   data = part['body']['data']
@@ -95,15 +96,13 @@ class Download:
                   # it with BeautifulSoup library
                   soup = BeautifulSoup(decoded_data , "lxml")
                   text = soup.body()
-                  #print(text)
               elif part['mimeType'] == 'application/pdf':
                 att_id = part['body']['attachmentId']
-                att = service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
-                data = att['data']
-                file_data = base64.urlsafe_b64decode(data.encode('UTF-8'))
-                path = part['filename']
-                with open(path, 'w') as f:
-                  f.write(file_data)
+                response = service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
+                file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
+                path = 'pdfs/'+part['filename']
+                multiple_pdf_data.append({'name': path, 'data': file_data})
+                
               elif part['mimeType'] == 'multipart/mixed':
                 for p in part['parts']:
                   if p['mimeType'] == 'application/pdf':
@@ -111,15 +110,16 @@ class Download:
                     response = service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
                     file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
                     path = 'pdfs/'+p['filename']
-                    with open(path, 'wb') as f:
-                      f.write(file_data)
-
+                    multiple_pdf_data.append({'name': path, 'data': file_data})
+                    
+            if len(multiple_pdf_data) > 0:
+              for file_data in multiple_pdf_data:
+                with open(file_data['name'], 'wb') as f:
+                  f.write(file_data['data'])
 
         except Exception as err:
           print(f"Unexpected {err=}, {type(err)=}")
-          pass
     except HttpError as error:
-      # TODO(developer) - Handle errors from gmail API.
       print(f"An error occurred: {error}")
 
 
