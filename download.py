@@ -1,13 +1,10 @@
 import os.path
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import base64
 from bs4 import BeautifulSoup
 import yaml
-from utility import logger_helper
+from utility import logger_helper, authenticate
 from itertools import compress 
 import time
 from process import Process
@@ -21,49 +18,28 @@ class Download:
     self.payment_methods = self.cfg['GOOGLE_API']['payment_methods']
     self.logger = logger_helper()
     self.process = Process(logger=self.logger)
-    
-    # If modifying these scopes, delete the file token.json.
-    SCOPES = self.cfg['GOOGLE_API']['scopes']
 
-    # Authenticate
-    self.creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists("token.json"):
-      self.creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    # Authenticate with GOOGLE API
+    self.creds = authenticate(self.cfg)
 
-    # If there are no (valid) credentials available, let the user log in.
-    if not self.creds or not self.creds.valid:
-      if self.creds and self.creds.expired and self.creds.refresh_token:
-        self.creds.refresh(Request())
-      else:
-        flow = InstalledAppFlow.from_client_secrets_file(
-            "credentials.json", SCOPES
-        )
-        self.creds = flow.run_console(port=0)
-      # Save the credentials for the next run
-      with open("token.json", "w") as token:
-        token.write(self.creds.to_json())
+    # Define GMAIL API service
+    self.service = build("gmail", "v1", credentials=self.creds)
+    self.logger.info("Authenticated")
 
   def get_emails(self):
-    
     try:
       self.logger.info("Reading the email using GMAIL API")
-      # Call the Gmail API
-      service = build("gmail", "v1", credentials=self.creds)
-      
       # request a list of all the messages
       # We can also pass maxResults to get any number of emails. Like this:
       # result = service.users().messages().list(maxResults=200, userId='me').execute()
-      result = service.users().messages().list(maxResults=self.cfg['GOOGLE_API']['no_emails'], userId='me').execute()
+      result = self.service.users().messages().list(maxResults=self.cfg['GOOGLE_API']['no_emails'], userId='me').execute()
       messages = result.get('messages')
       self.logger.info("Got the mails and processing now")
       # messages is a list of dictionaries where each dictionary contains a message id.
       # iterate through all the messages
       for msg in messages:
         # Get the message from its id
-        txt = service.users().messages().get(userId='me', id=msg['id']).execute()
+        txt = self.service.users().messages().get(userId='me', id=msg['id']).execute()
         # Use try-except to avoid any Errors
 
         multiple_pdf_data = []
@@ -98,7 +74,7 @@ class Download:
           if proceed == True:
             for part in payload['parts']:
               if part['mimeType'] == 'text/plain':
-                if 'data' in part['body']:
+                '''if 'data' in part['body']:
                   data = part['body']['data']
                   data = data.replace("-","+").replace("_","/")
                   decoded_data = base64.b64decode(data)
@@ -106,10 +82,11 @@ class Download:
                   # Now, the data obtained is in lxml. So, we will parse
                   # it with BeautifulSoup library
                   soup = BeautifulSoup(decoded_data , "lxml")
-                  text = soup.body()
+                  text = soup.body()'''
+                pass
               elif part['mimeType'] == 'application/pdf':
                 att_id = part['body']['attachmentId']
-                response = service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
+                response = self.service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
                 file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
                 path = self.cfg['dir']+'/'+part['filename']
                 multiple_pdf_data.append({'name': path, 'data': file_data})
@@ -118,7 +95,7 @@ class Download:
                 for p in part['parts']:
                   if p['mimeType'] == 'application/pdf':
                     att_id = p['body']['attachmentId']
-                    response = service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
+                    response = self.service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
                     file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
                     path = self.cfg['dir']+'/'+p['filename']
                     multiple_pdf_data.append({'name': path, 'data': file_data})

@@ -24,11 +24,11 @@ class Process:
         if os.path.exists(file_path):
             self.logger.info(f"file: {file_path} is processing")
             try:
-                # creating a pdf reader object
+                # Creating a pdf reader object
                 reader = PdfReader(file_path)
                 content = ""
                 for page in reader.pages:
-                    # extracting text from page
+                    # Extracting text from page
                     content += page.extract_text()
                     content += '\n'
                 self.logger.info("PDF data extraction completed, now requesting LLM to extract the information")
@@ -55,7 +55,7 @@ class Process:
 
     def get_JSON(self, response:str):
         
-        #Find the index of the first opening curly brace '{' within the extracted_text
+        # Find the index of the first opening curly brace '{' within the extracted_text
         start_index = response.find('{') + 1
         # Extract text from extracted_text starting from the position after the first '{'
         text_after_first_brace = response[start_index:]
