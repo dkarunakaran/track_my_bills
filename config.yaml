@@ -1,16 +1,23 @@
 maintainer: Dhanoop Karunakaran
-debug: False
-gmail:
-  no_emails: 10
+debug: True
+dir: 'pdfs'
+GOOGLE_API:
+  no_emails: 30
   subjects:
     - 'FDC Invoice Dev'
     - 'FDC Receipt Dev'
     - 'Your Energy Locals Urban Invoice'
+  # Each subject should have a payment method
+  payment_methods:
+    - 'Manual'
+    - 'Manual'
+    - 'Direct Debit'
   senders:
     - 'mariaka1@me.com'
     - 'dhanooponline@gmail.com'
   scopes:
     - 'https://www.googleapis.com/auth/gmail.readonly'
+    - 'https://www.googleapis.com/auth/tasks'
 ollama:
   host: 'http://192.168.0.160:11434'
   model: 'llama3.1:8b'
@@ -20,6 +27,8 @@ ollama:
         Amount: 
         Due_date: 
         Biller_name:
+
+        Please make sure Due_date is in year-month-day format.
 
         Here is the text for extracting the information: {context}.
 

@@ -16,7 +16,8 @@ class SqliteDB:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR(100) NOT NULL,
                 date VARCHAR(100) NOT NULL,
-                amount VARCHAR(100) NOT NULL
+                amount VARCHAR(100) NOT NULL,
+                payment VARCHAR(100)
             )
         ''')
         self.conn.commit()

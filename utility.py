@@ -9,7 +9,7 @@ def logger_helper():
       cfg = yaml.load(f, Loader=yaml.FullLoader)
 
     logger = logging.getLogger('my_logger')
-    logger.setLevel(logging.DEBUG)  # Capture all messages of debug or higher severity
+    logger.setLevel(logging.INFO)  # Capture all messages of debug or higher severity
 
     ### File handler for errors
     # Create a file handler that writes log messages to 'error.log'

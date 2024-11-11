@@ -4,18 +4,25 @@ import json
 import re
 from sqlitedb import SqliteDB
 from ollama_service import OllamaService
-import logging 
 import os
 from utility import logger_helper
+from os import listdir
+from os.path import isfile, join
+import yaml
 
 class Process:
-    def __init__(self):
+    def __init__(self, logger=None):
+        with open("config.yaml") as f:
+            self.cfg = yaml.load(f, Loader=yaml.FullLoader)
         self.ollama_service = OllamaService()
         self.sql_db = SqliteDB()
-        self.logger = logger_helper()
+        self.logger = logger
+        if self.logger is None:
+            self.logger = logger_helper()
     
-    def read_and_process(self, file_path):
+    def read_and_process(self, file_path, payment_method=""):
         if os.path.exists(file_path):
+            self.logger.info(f"file: {file_path} is processing")
             try:
                 # creating a pdf reader object
                 reader = PdfReader(file_path)
@@ -32,13 +39,13 @@ class Process:
                 self.logger.info(f"Got the JSON ecncoded data: {result}")
                 
                 if self.content_entry_found(result['Biller_name'], result['Due_date'], result['Amount']) == False:
-                    self.sql_db.cursor.execute("""INSERT INTO Content (name, date, amount) VALUES (?,?,?)""", [result['Biller_name'], result['Due_date'], result['Amount']])
+                    self.sql_db.cursor.execute("""INSERT INTO Content (name, date, amount, payment) VALUES (?,?,?,?)""", [result['Biller_name'], result['Due_date'], result['Amount'], payment_method])
                     self.sql_db.conn.commit()
                     self.logger.info("Data inserted to SQLite")
                 else:
                     self.logger.info("Data is already exist in SQLite")
                 
-                #os.remove(file_path)
+                os.remove(file_path)
                 self.logger.info(f"file: {file_path} is removed")  
 
             except Exception as err:
@@ -65,12 +72,6 @@ class Process:
         json_data = json.loads(output_string2)
 
         return json_data
-    
-    def create_update_task_API(self):
-        # https://gist.github.com/qmacro/973175/19d4a7947fdaf45767699286b594a4075dbcc12f
-        # https://github.com/googleapis/google-api-python-client/blob/main/samples/service_account/tasks.py
-
-        pass
 
     def content_entry_found(self, name, date, amount):
         query = f"SELECT id FROM Content where name LIKE '%{name}%' and date LIKE '%{date}%'and amount LIKE '%{amount}%' LIMIT 1"
@@ -81,9 +82,17 @@ class Process:
             status = False
 
         return status
+    
+    def read_dir(self):
+        onlyfiles = [f for f in listdir(self.cfg['dir']) if isfile(join(self.cfg['dir'], f))]
+        for file in onlyfiles:
+            file_path = self.cfg['dir']+"/"+file
+            self.read_and_process(file_path)    
+
 
 
 if __name__ == "__main__":
   process = Process()
-  process.read_and_process('pdfs/FDC Invoice Dev WE 17:11:24 & 24:11:24.pdf')
+  #process.read_and_process('pdfs/FDC Receipt Dev WE 03:11:24 & 11:11:24.pdf')
+  process.read_dir()
 

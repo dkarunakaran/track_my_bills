@@ -4,22 +4,26 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-import os.path
 import base64
 from bs4 import BeautifulSoup
 import yaml
 from utility import logger_helper
+from itertools import compress 
+import time
+from process import Process
 
 class Download:
   def __init__(self):
     with open("config.yaml") as f:
       self.cfg = yaml.load(f, Loader=yaml.FullLoader)
-    self.subjects = self.cfg['gmail']['subjects']
-    self.senders = self.cfg['gmail']['senders']
+    self.subjects = self.cfg['GOOGLE_API']['subjects']
+    self.senders = self.cfg['GOOGLE_API']['senders']
+    self.payment_methods = self.cfg['GOOGLE_API']['payment_methods']
     self.logger = logger_helper()
+    self.process = Process(logger=self.logger)
     
     # If modifying these scopes, delete the file token.json.
-    SCOPES = self.cfg['gmail']['scopes']
+    SCOPES = self.cfg['GOOGLE_API']['scopes']
 
     # Authenticate
     self.creds = None
@@ -52,7 +56,7 @@ class Download:
       # request a list of all the messages
       # We can also pass maxResults to get any number of emails. Like this:
       # result = service.users().messages().list(maxResults=200, userId='me').execute()
-      result = service.users().messages().list(maxResults=self.cfg['gmail']['no_emails'], userId='me').execute()
+      result = service.users().messages().list(maxResults=self.cfg['GOOGLE_API']['no_emails'], userId='me').execute()
       messages = result.get('messages')
       self.logger.info("Got the mails and processing now")
       # messages is a list of dictionaries where each dictionary contains a message id.
@@ -80,6 +84,14 @@ class Download:
           proceed = False
           subject_found = [True if subject.find(s) != -1 else False  for s in self.subjects]
           sender_found = [True if sender.find(sen) != -1 else False  for sen in self.senders]
+          res = list(compress(range(len(subject_found)), subject_found))
+
+          # Selecting payment methods
+          payment_method = ""
+          if len(res) > 0:
+            method_index = res[0]
+            payment_method = self.payment_methods[method_index]
+
           if True in subject_found and True in sender_found:
             proceed = True
 
@@ -99,7 +111,7 @@ class Download:
                 att_id = part['body']['attachmentId']
                 response = service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
                 file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
-                path = 'pdfs/'+part['filename']
+                path = self.cfg['dir']+'/'+part['filename']
                 multiple_pdf_data.append({'name': path, 'data': file_data})
                 
               elif part['mimeType'] == 'multipart/mixed':
@@ -108,7 +120,7 @@ class Download:
                     att_id = p['body']['attachmentId']
                     response = service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
                     file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
-                    path = 'pdfs/'+p['filename']
+                    path = self.cfg['dir']+'/'+p['filename']
                     multiple_pdf_data.append({'name': path, 'data': file_data})
                     
             if len(multiple_pdf_data) > 0:
@@ -116,6 +128,8 @@ class Download:
               for file_data in multiple_pdf_data:
                 with open(file_data['name'], 'wb') as f:
                   f.write(file_data['data'])
+                time.sleep(3)
+                self.process.read_and_process(file_data['name'],payment_method)
 
         except Exception as err:
           self.logger.error(f"Unexpected {err=}, {type(err)=}")
