@@ -1,6 +1,7 @@
 maintainer: Dhanoop Karunakaran
+debug: False
 gmail:
-  debug: False
+  no_emails: 10
   subjects:
     - 'FDC Invoice Dev'
     - 'FDC Receipt Dev'
@@ -12,9 +13,9 @@ gmail:
     - 'https://www.googleapis.com/auth/gmail.readonly'
 ollama:
   host: 'http://192.168.0.160:11434'
-  model: 'llama3.2'
+  model: 'llama3.1:8b'
   template: '
-        You are expert in finding the entities from the test and extract relevant information and return only the JSON with the following content.
+        You are expert in finding the entities from the test and extract relevant information and return only the JSON with the following content. 
         Find the amount to be paid, due date, and get the biller name(just the name only) in the following formats:
         Amount: 
         Due_date: 

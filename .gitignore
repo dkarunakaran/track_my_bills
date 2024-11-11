@@ -2,6 +2,8 @@ credentials.json
 token.json
 pdfs/*.pdf
 pdfs/*.PDF
+data/*.sqlite3
+*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

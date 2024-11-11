@@ -8,6 +8,7 @@ import os.path
 import base64
 from bs4 import BeautifulSoup
 import yaml
+from utility import logger_helper
 
 class Download:
   def __init__(self):
@@ -15,6 +16,7 @@ class Download:
       self.cfg = yaml.load(f, Loader=yaml.FullLoader)
     self.subjects = self.cfg['gmail']['subjects']
     self.senders = self.cfg['gmail']['senders']
+    self.logger = logger_helper()
     
     # If modifying these scopes, delete the file token.json.
     SCOPES = self.cfg['gmail']['scopes']
@@ -43,19 +45,17 @@ class Download:
   def get_emails(self):
     
     try:
+      self.logger.info("Reading the email using GMAIL API")
       # Call the Gmail API
       service = build("gmail", "v1", credentials=self.creds)
       
       # request a list of all the messages
       # We can also pass maxResults to get any number of emails. Like this:
       # result = service.users().messages().list(maxResults=200, userId='me').execute()
-      result = service.users().messages().list(maxResults=1, userId='me').execute()
-      
+      result = service.users().messages().list(maxResults=self.cfg['gmail']['no_emails'], userId='me').execute()
       messages = result.get('messages')
-      
-
+      self.logger.info("Got the mails and processing now")
       # messages is a list of dictionaries where each dictionary contains a message id.
-
       # iterate through all the messages
       for msg in messages:
         # Get the message from its id
@@ -85,7 +85,6 @@ class Download:
 
           if proceed == True:
             for part in payload['parts']:
-              print(part)
               if part['mimeType'] == 'text/plain':
                 if 'data' in part['body']:
                   data = part['body']['data']
@@ -113,14 +112,15 @@ class Download:
                     multiple_pdf_data.append({'name': path, 'data': file_data})
                     
             if len(multiple_pdf_data) > 0:
+              self.logger.info("Saving the attachments to a folder")
               for file_data in multiple_pdf_data:
                 with open(file_data['name'], 'wb') as f:
                   f.write(file_data['data'])
 
         except Exception as err:
-          print(f"Unexpected {err=}, {type(err)=}")
+          self.logger.error(f"Unexpected {err=}, {type(err)=}")
     except HttpError as error:
-      print(f"An error occurred: {error}")
+      self.logger.critical(f"An error occurred: {error}")
 
 
 if __name__ == "__main__":

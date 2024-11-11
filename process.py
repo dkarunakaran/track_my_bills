@@ -2,25 +2,49 @@
 from pypdf import PdfReader
 import json
 import re
-
+from sqlitedb import SqliteDB
 from ollama_service import OllamaService
+import logging 
+import os
+from utility import logger_helper
 
 class Process:
     def __init__(self):
         self.ollama_service = OllamaService()
+        self.sql_db = SqliteDB()
+        self.logger = logger_helper()
     
     def read_and_process(self, file_path):
-        # creating a pdf reader object
-        reader = PdfReader(file_path)
-        content = ""
-        for page in reader.pages:
-            # extracting text from page
-            content += page.extract_text()
-            content += '\n'
-        print("PDF data extraction completed, now checking with LLM to extract the information")
-        response = self.ollama_service.query(content)
-        result = self.get_JSON(response)
-        print(result)
+        if os.path.exists(file_path):
+            try:
+                # creating a pdf reader object
+                reader = PdfReader(file_path)
+                content = ""
+                for page in reader.pages:
+                    # extracting text from page
+                    content += page.extract_text()
+                    content += '\n'
+                self.logger.info("PDF data extraction completed, now requesting LLM to extract the information")
+                
+                response = self.ollama_service.query(content)  
+                self.logger.debug(f"data from LLM: {response}")
+                result = self.get_JSON(response)
+                self.logger.info(f"Got the JSON ecncoded data: {result}")
+                
+                if self.content_entry_found(result['Biller_name'], result['Due_date'], result['Amount']) == False:
+                    self.sql_db.cursor.execute("""INSERT INTO Content (name, date, amount) VALUES (?,?,?)""", [result['Biller_name'], result['Due_date'], result['Amount']])
+                    self.sql_db.conn.commit()
+                    self.logger.info("Data inserted to SQLite")
+                else:
+                    self.logger.info("Data is already exist in SQLite")
+                
+                #os.remove(file_path)
+                self.logger.info(f"file: {file_path} is removed")  
+
+            except Exception as err:
+                self.logger.error(f"Unexpected {err=}, {type(err)=}")
+        else:
+            self.logger.warning("The file does not exist")
 
     def get_JSON(self, response:str):
         
@@ -41,9 +65,25 @@ class Process:
         json_data = json.loads(output_string2)
 
         return json_data
+    
+    def create_update_task_API(self):
+        # https://gist.github.com/qmacro/973175/19d4a7947fdaf45767699286b594a4075dbcc12f
+        # https://github.com/googleapis/google-api-python-client/blob/main/samples/service_account/tasks.py
+
+        pass
+
+    def content_entry_found(self, name, date, amount):
+        query = f"SELECT id FROM Content where name LIKE '%{name}%' and date LIKE '%{date}%'and amount LIKE '%{amount}%' LIMIT 1"
+        self.sql_db.cursor.execute(query)
+        content_id = self.sql_db.cursor.fetchall()
+        status = True
+        if len(content_id) == 0:
+            status = False
+
+        return status
 
 
 if __name__ == "__main__":
   process = Process()
-  process.read_and_process('pdfs/77090066069 ELEC_1507755.PDF')
+  process.read_and_process('pdfs/FDC Invoice Dev WE 17:11:24 & 24:11:24.pdf')
 
