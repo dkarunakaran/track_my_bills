@@ -46,7 +46,7 @@ class Process:
         
 
     def llm_check_and_db_insert(self, content, payment_method):
-        self.logger.info("Data extraction completed, now requesting LLM to extract the information")
+        self.logger.info("Got the Data, now requesting LLM to extract the information")
         response = self.ollama_service.query(content)  
         self.logger.debug(f"data from LLM: {response}")
         result = self.get_JSON(response)

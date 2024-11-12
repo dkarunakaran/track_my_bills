@@ -27,7 +27,7 @@ GOOGLE_API:
 ollama:
   host: 'http://192.168.0.160:11434'
   model: 'llama3.1:8b'
-  template: '
+  template_deleted: '
         You are expert in finding the entities from the test and extract relevant information and return only the JSON with the following content. 
         Find the amount to be paid, due date, and get the biller name(just the name only) in the following formats:
         Amount: 
@@ -39,3 +39,13 @@ ollama:
         Here is the text for extracting the information: {context}.
 
       '
+  template: "
+        Your task is to extract invoice data from the text '{context}'.
+
+        Reply Structures:
+        - Amount 
+        - Due_date 
+        - Biller_name   
+
+        Reply with valid json. Please make sure Due_date is in year-month-day format and Biller_name has only a few words
+      "
