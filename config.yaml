@@ -2,19 +2,25 @@ maintainer: Dhanoop Karunakaran
 debug: True
 dir: 'pdfs'
 GOOGLE_API:
-  no_emails: 30
+  no_emails: 40
   subjects:
     - 'FDC Invoice Dev'
-    - 'FDC Receipt Dev'
     - 'Your Energy Locals Urban Invoice'
+    - 'Sydney Water eBill'
   # Each subject should have a payment method
   payment_methods:
     - 'Manual'
-    - 'Manual'
     - 'Direct Debit'
+    - 'Bpay'
+  # Each subject should have a download method
+  download_methods:
+    - 'attachment'
+    - 'attachment'
+    - 'email_body'
   senders:
     - 'mariaka1@me.com'
     - 'dhanooponline@gmail.com'
+    - 'sender@sydneywater.com.au'
   scopes:
     - 'https://www.googleapis.com/auth/gmail.readonly'
     - 'https://www.googleapis.com/auth/tasks'

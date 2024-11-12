@@ -8,6 +8,7 @@ from utility import logger_helper, authenticate
 from itertools import compress 
 import time
 from process import Process
+import re
 
 class Download:
   def __init__(self):
@@ -16,6 +17,7 @@ class Download:
     self.subjects = self.cfg['GOOGLE_API']['subjects']
     self.senders = self.cfg['GOOGLE_API']['senders']
     self.payment_methods = self.cfg['GOOGLE_API']['payment_methods']
+    self.download_methods = self.cfg['GOOGLE_API']['download_methods']
     self.logger = logger_helper()
     self.process = Process(logger=self.logger)
 
@@ -41,7 +43,6 @@ class Download:
         # Get the message from its id
         txt = self.service.users().messages().get(userId='me', id=msg['id']).execute()
         # Use try-except to avoid any Errors
-
         multiple_pdf_data = []
         path = None
         try:
@@ -60,21 +61,23 @@ class Download:
           proceed = False
           subject_found = [True if subject.find(s) != -1 else False  for s in self.subjects]
           sender_found = [True if sender.find(sen) != -1 else False  for sen in self.senders]
-          res = list(compress(range(len(subject_found)), subject_found))
-
+          res_sub = list(compress(range(len(subject_found)), subject_found))
+          download_method = ""
           # Selecting payment methods
           payment_method = ""
-          if len(res) > 0:
-            method_index = res[0]
+          if len(res_sub) > 0:
+            method_index = res_sub[0]
             payment_method = self.payment_methods[method_index]
+            download_method = self.download_methods[method_index]
 
           if True in subject_found and True in sender_found:
             proceed = True
 
+          self.logger.info(f"Processing: '{subject}' now")
           if proceed == True:
             for part in payload['parts']:
-              if part['mimeType'] == 'text/plain':
-                '''if 'data' in part['body']:
+              if part['mimeType'] == 'text/plain' and download_method == 'email_body':
+                if 'data' in part['body']:
                   data = part['body']['data']
                   data = data.replace("-","+").replace("_","/")
                   decoded_data = base64.b64decode(data)
@@ -82,8 +85,9 @@ class Download:
                   # Now, the data obtained is in lxml. So, we will parse
                   # it with BeautifulSoup library
                   soup = BeautifulSoup(decoded_data , "lxml")
-                  text = soup.body()'''
-                pass
+                  text = soup.get_text()
+                  self.process.read_and_process(payment_method=payment_method, is_pdf=False, text=text)        
+                
               elif part['mimeType'] == 'application/pdf':
                 att_id = part['body']['attachmentId']
                 response = self.service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
@@ -107,12 +111,10 @@ class Download:
                   f.write(file_data['data'])
                 time.sleep(3)
                 self.process.read_and_process(file_data['name'],payment_method)
-
         except Exception as err:
           self.logger.error(f"Unexpected {err=}, {type(err)=}")
     except HttpError as error:
       self.logger.critical(f"An error occurred: {error}")
-
 
 if __name__ == "__main__":
   download = Download()

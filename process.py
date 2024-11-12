@@ -20,38 +20,43 @@ class Process:
         if self.logger is None:
             self.logger = logger_helper()
     
-    def read_and_process(self, file_path, payment_method=""):
-        if os.path.exists(file_path):
-            self.logger.info(f"file: {file_path} is processing")
-            try:
-                # Creating a pdf reader object
-                reader = PdfReader(file_path)
-                content = ""
-                for page in reader.pages:
-                    # Extracting text from page
-                    content += page.extract_text()
-                    content += '\n'
-                self.logger.info("PDF data extraction completed, now requesting LLM to extract the information")
-                
-                response = self.ollama_service.query(content)  
-                self.logger.debug(f"data from LLM: {response}")
-                result = self.get_JSON(response)
-                self.logger.info(f"Got the JSON ecncoded data: {result}")
-                
-                if self.content_entry_found(result['Biller_name'], result['Due_date'], result['Amount']) == False:
-                    self.sql_db.cursor.execute("""INSERT INTO Content (name, date, amount, payment) VALUES (?,?,?,?)""", [result['Biller_name'], result['Due_date'], result['Amount'], payment_method])
-                    self.sql_db.conn.commit()
-                    self.logger.info("Data inserted to SQLite")
+    def read_and_process(self, file_path=None, payment_method="", is_pdf=True, text=None):
+        try:
+            if is_pdf == True:
+                if os.path.exists(file_path):
+                    self.logger.info(f"file: {file_path} is processing")
+                    # Creating a pdf reader object
+                    reader = PdfReader(file_path)
+                    content = ""
+                    for page in reader.pages:
+                        # Extracting text from page
+                        content += page.extract_text()
+                        content += '\n'
+                    #content = reader.pages[0]
+                    self.llm_check_and_db_insert(content, payment_method)
+                    os.remove(file_path)
+                    self.logger.info(f"file: {file_path} is removed")  
                 else:
-                    self.logger.info("Data is already exist in SQLite")
-                
-                os.remove(file_path)
-                self.logger.info(f"file: {file_path} is removed")  
+                    self.logger.warning("The file does not exist")
+            else:
+                self.llm_check_and_db_insert(text, payment_method)
 
-            except Exception as err:
-                self.logger.error(f"Unexpected {err=}, {type(err)=}")
+        except Exception as err:
+            self.logger.error(f"Unexpected {err=}, {type(err)=}")
+        
+
+    def llm_check_and_db_insert(self, content, payment_method):
+        self.logger.info("Data extraction completed, now requesting LLM to extract the information")
+        response = self.ollama_service.query(content)  
+        self.logger.debug(f"data from LLM: {response}")
+        result = self.get_JSON(response)
+        self.logger.info(f"Got the JSON ecncoded data: {result}")
+        if self.content_entry_found(result['Biller_name'], result['Due_date'], result['Amount']) == False:
+            self.sql_db.cursor.execute("""INSERT INTO Content (name, date, amount, payment) VALUES (?,?,?,?)""", [result['Biller_name'], result['Due_date'], result['Amount'], payment_method])
+            self.sql_db.conn.commit()
+            self.logger.info("Data inserted to SQLite")
         else:
-            self.logger.warning("The file does not exist")
+            self.logger.info("Data is already exist in SQLite")
 
     def get_JSON(self, response:str):
         

@@ -23,6 +23,7 @@ RUN pip install langchain
 RUN pip install langchain-chroma
 RUN pip install langchain-ollama
 RUN pip install langchain-huggingface
+RUN pip install fpdf2
 
 
 WORKDIR /app
