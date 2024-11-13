@@ -25,7 +25,7 @@ class Generate:
             self.creds = authenticate(self.cfg)
 
         # Define the TASK API
-        self.service = build("tasks", "v1", credentials=self.creds)
+        self.task_service = build("tasks", "v1", credentials=self.creds)
         self.logger.info("Authenticated")
 
     def task_API_operation(self):
@@ -47,10 +47,10 @@ class Generate:
                             taskdata = { 'title': content[1], 'due': date_obj.isoformat(),'notes': notes}
                             if task_id is None:
                                 self.logger.info(f"TASK API insert operation of '{content[1]}' started")
-                                result = self.service.tasks().insert(tasklist=tasklist_id, body=taskdata).execute()
+                                result = self.task_service.tasks().insert(tasklist=tasklist_id, body=taskdata).execute()
                             else:
                                 self.logger.info(f"TASK API update operation '{content[1]}' started")
-                                result = self.service.tasks().patch(tasklist=tasklist_id, task=task_id, body=taskdata).execute()
+                                result = self.task_service.tasks().patch(tasklist=tasklist_id, task=task_id, body=taskdata).execute()
                             self.logger.debug(result)
                             self.delete_content(id=content[0])
                     self.logger.info("All Tasks are created/updated")
@@ -64,7 +64,7 @@ class Generate:
     def get_tasklist_id(self, keyword):
          # List all the tasklists for the account.
         id = None
-        lists = self.service.tasklists().list().execute()
+        lists = self.task_service.tasklists().list().execute()
         for item in lists['items']:
             if item['title'] == keyword:
                 id = item['id']
@@ -73,7 +73,7 @@ class Generate:
     
     def get_task_id(self, tasklist_id=None, task_name=None):
         id = None
-        results = self.service.tasks().list(tasklist=tasklist_id).execute()
+        results = self.task_service.tasks().list(tasklist=tasklist_id).execute()
         tasks = results.get('items', [])
         self.logger.debug(f"All tasks: {tasks}")
         for task in tasks:

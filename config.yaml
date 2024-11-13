@@ -24,6 +24,9 @@ GOOGLE_API:
   scopes:
     - 'https://www.googleapis.com/auth/gmail.readonly'
     - 'https://www.googleapis.com/auth/tasks'
+    - 'https://www.googleapis.com/auth/drive'
+  no_of_drive_files: 20
+  drive_folder_name: 'track_my_bill_content'
 ollama:
   host: 'http://192.168.0.160:11434'
   model: 'llama3.1:8b'
