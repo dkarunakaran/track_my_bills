@@ -2,25 +2,29 @@ maintainer: Dhanoop Karunakaran
 debug: True
 dir: 'pdfs'
 GOOGLE_API:
-  no_emails: 40
+  no_emails: 50
   subjects:
     - 'FDC Invoice Dev'
     - 'Your Energy Locals Urban Invoice'
     - 'Sydney Water eBill'
+    - 'Uniti Retail Pty Ltd - Invoice' # it has attachment, but email body contains info clear
   # Each subject should have a payment method
   payment_methods:
     - 'Manual'
     - 'Direct Debit'
     - 'Bpay'
+    - 'Manual'
   # Each subject should have a download method
   download_methods:
     - 'attachment'
     - 'attachment'
     - 'email_body'
+    - 'email_body' 
   senders:
     - 'mariaka1@me.com'
     - 'dhanooponline@gmail.com'
     - 'sender@sydneywater.com.au'
+    - 'support@unitiinternet.com'
   scopes:
     - 'https://www.googleapis.com/auth/gmail.readonly'
     - 'https://www.googleapis.com/auth/tasks'
