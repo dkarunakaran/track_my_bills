@@ -13,6 +13,11 @@ from tqdm import tqdm
 from googleapiclient.http import MediaIoBaseDownload
 import re
 
+#from PIL import Image
+#import pytesseract
+#import cv2
+#import os
+
 class Download:
   def __init__(self):
     with open("config.yaml") as f:
@@ -149,6 +154,28 @@ class Download:
             self.logger.info(f"file: {file['name']} is deleted from Google Drive") 
             file_path=self.cfg['dir']+"/"+file['name']
             self.process.read_and_process(file_path, payment_method="")
+          if str(file["mimeType"]) == str("image/png"):
+            self.logger.info(f"Downloading: {file['name']} is started") 
+            self.downloadfiles(file['id'], file['name'])
+            '''
+            # load the example image and convert it to grayscale
+            image = cv2.imread(self.cfg['dir']+"/"+file['name'])
+            print(image)
+        
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            
+            # apply thresholding to preprocess the image
+            gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+
+            # apply median blurring to remove any blurring
+            gray = cv2.medianBlur(gray, 3)
+
+            # save the processed image in the /static/uploads directory
+            ofilename = os.path.join(app.config['UPLOAD_FOLDER'],"{}.png".format(os.getpid()))
+            cv2.imwrite(ofilename, gray)
+            
+            # perform OCR on the processed image
+            text = pytesseract.image_to_string(Image.open(ofilename))'''
 
       else:
         self.logger.info(f"No files found")

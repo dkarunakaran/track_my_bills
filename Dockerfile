@@ -18,12 +18,18 @@ RUN pip install ollama==0.3.2
 
 RUN pip install pypdf
 
-# Langchian
+# Langchain
 RUN pip install langchain
 RUN pip install langchain-chroma
 RUN pip install langchain-ollama
 RUN pip install langchain-huggingface
+
 RUN pip install fpdf2
+
+RUN pip install opencv-python>=4.0
+RUN pip install pillow>=6.2.0
+RUN pip install pytesseract>=0.2.6
+RUN pip install werkzeug>=2.0
 
 
 WORKDIR /app
