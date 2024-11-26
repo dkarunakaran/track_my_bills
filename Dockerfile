@@ -26,10 +26,15 @@ RUN pip install langchain-huggingface
 
 RUN pip install fpdf2
 
-RUN pip install opencv-python>=4.0
+RUN apt-get update && apt-get -y install tesseract-ocr 
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 -y
+RUN pip3 install opencv-python
+RUN pip3 install pandas
+
 RUN pip install pillow>=6.2.0
 RUN pip install pytesseract>=0.2.6
 RUN pip install werkzeug>=2.0
+
 
 
 WORKDIR /app

@@ -8,23 +8,27 @@ GOOGLE_API:
     - 'Your Energy Locals Urban Invoice'
     - 'Sydney Water eBill'
     - 'Uniti Retail Pty Ltd - Invoice' # it has attachment, but email body contains info clear
+    - 'Telstra Upfront Mobile Plan'
   # Each subject should have a payment method
   payment_methods:
     - 'Manual'
     - 'Direct Debit'
     - 'Bpay'
     - 'Manual'
+    - 'Credit Card'
   # Each subject should have a download method
   download_methods:
     - 'attachment'
     - 'attachment'
     - 'email_body'
     - 'email_body' 
+    - 'google_drive_file'
   senders:
     - 'mariaka1@me.com'
     - 'dhanooponline@gmail.com'
     - 'sender@sydneywater.com.au'
     - 'support@unitiinternet.com'
+    - 'google_drive_file'
   scopes:
     - 'https://www.googleapis.com/auth/gmail.readonly'
     - 'https://www.googleapis.com/auth/tasks'

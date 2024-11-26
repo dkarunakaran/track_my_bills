@@ -9,6 +9,7 @@ from utility import logger_helper
 from os import listdir
 from os.path import isfile, join
 import yaml
+from itertools import compress 
 
 class Process:
     def __init__(self, logger=None):
@@ -19,8 +20,13 @@ class Process:
         self.logger = logger
         if self.logger is None:
             self.logger = logger_helper()
+        self.subjects = self.cfg['GOOGLE_API']['subjects']
+        self.payment_methods = self.cfg['GOOGLE_API']['payment_methods']
     
-    def read_and_process(self, file_path=None, payment_method="", is_pdf=True, text=None):
+    # find_payment_method flag force the code the find the payment method again. In some cases, especially drive files, we do not have specific subject field,
+    # so finding the payment method without subject will be hard intitally. Once we get the subject field after LLm processing, we need to initiate
+    # the payment method finding. 
+    def read_and_process(self, file_path=None, payment_method="", is_pdf=True, text=None, is_image=False, find_payment_method=False):
         try:
             if is_pdf == True:
                 if os.path.exists(file_path):
@@ -39,24 +45,40 @@ class Process:
                 else:
                     self.logger.warning("The file does not exist")
             else:
-                self.llm_check_and_db_insert(text, payment_method)
+                self.llm_check_and_db_insert(text, payment_method, find_payment_method)
+                if is_image == True:
+                    os.remove(file_path)
+                    self.logger.info(f"file: {file_path} is removed")  
 
         except Exception as err:
             self.logger.error(f"Unexpected {err=}, {type(err)=}")
         
 
-    def llm_check_and_db_insert(self, content, payment_method):
+    def llm_check_and_db_insert(self, content, payment_method, find_payment_method = False):
         self.logger.info("Got the Data, now requesting LLM to extract the information")
         response = self.ollama_service.query(content)  
         self.logger.debug(f"data from LLM: {response}")
         result = self.get_JSON(response)
         self.logger.info(f"Got the JSON ecncoded data: {result}")
+        if find_payment_method == True:
+            self.logger.info("Searching for the payment method")
+            title = result['Biller_name']
+            # To find the payment method
+            title_found = [True if title in s else False  for s in self.subjects]
+            res_sub = list(compress(range(len(title_found)), title_found))
+            payment_method = ""
+            if len(res_sub) > 0:
+                method_index = res_sub[0]
+                payment_method = self.payment_methods[method_index]
+                self.logger.info(f"Found the payment method: {payment_method}")
+        
         if self.content_entry_found(result['Biller_name'], result['Due_date'], result['Amount']) == False:
             self.sql_db.cursor.execute("""INSERT INTO Content (name, date, amount, payment) VALUES (?,?,?,?)""", [result['Biller_name'], result['Due_date'], result['Amount'], payment_method])
             self.sql_db.conn.commit()
             self.logger.info("Data inserted to SQLite")
         else:
             self.logger.info("Data is already exist in SQLite")
+
 
     def get_JSON(self, response:str):
         
