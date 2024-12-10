@@ -2,13 +2,14 @@ maintainer: Dhanoop Karunakaran
 debug: True
 dir: 'pdfs'
 GOOGLE_API:
-  no_emails: 50
+  no_emails: 30
   subjects:
     - 'FDC Invoice Dev'
     - 'Your Energy Locals Urban Invoice'
     - 'Sydney Water eBill'
     - 'Uniti Retail Pty Ltd - Invoice' # it has attachment, but email body contains info clear
     - 'Telstra Upfront Mobile Plan'
+    - 'Strata Plan100063 91 GRIMA STREET'
   # Each subject should have a payment method
   payment_methods:
     - 'Manual'
@@ -16,6 +17,7 @@ GOOGLE_API:
     - 'Bpay'
     - 'Manual'
     - 'Credit Card'
+    - 'Bpay'
   # Each subject should have a download method
   download_methods:
     - 'attachment'
@@ -23,12 +25,14 @@ GOOGLE_API:
     - 'email_body'
     - 'email_body' 
     - 'google_drive_file'
+    - 'attachment'
   senders:
     - 'mariaka1@me.com'
     - 'dhanooponline@gmail.com'
     - 'sender@sydneywater.com.au'
     - 'support@unitiinternet.com'
     - 'google_drive_file'
+    - 'notices@netstrata.com.au'
   scopes:
     - 'https://www.googleapis.com/auth/gmail.readonly'
     - 'https://www.googleapis.com/auth/tasks'

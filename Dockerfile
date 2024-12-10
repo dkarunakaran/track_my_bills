@@ -39,4 +39,8 @@ RUN pip install werkzeug>=2.0
 
 WORKDIR /app
 
+# For kubernetes cron job
+COPY . .
+
 CMD ["/bin/bash"]
+#CMD ["python", "main.py"]
