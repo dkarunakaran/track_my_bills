@@ -1,3 +1,6 @@
+###*********************This has to run outside of Docker*****************
+
+
 
 # Delete the existing cron jobs - track-my-bills-cron -> name of kubernetes cron job
 minikube kubectl --  delete cronjob track-my-bills-cron 

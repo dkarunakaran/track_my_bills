@@ -1,10 +1,10 @@
 FROM python:3.12.5-bookworm
 
 RUN pip install --upgrade pip
-RUN pip install google-api-python-client==1.7.2
-RUN pip install google-auth==2.14.1
-RUN pip install google-auth-httplib2==0.0.3
-RUN pip install google-auth-oauthlib==0.4.1
+RUN pip install google-api-python-client
+RUN pip install google-auth
+RUN pip install google-auth-httplib2
+RUN pip install google-auth-oauthlib
 
 # Web scraping
 RUN pip install beautifulsoup4~=4.12.3
