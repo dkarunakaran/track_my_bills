@@ -1,4 +1,4 @@
-###*********************This has to run outside of Docker*****************
+###*********************This has to run outside of Docker container*****************
 
 
 

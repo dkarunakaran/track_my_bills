@@ -1,3 +1,5 @@
+###*********************This has to run outside of Docker container*****************
+
 import logging
 import yaml
 import os.path
