@@ -11,7 +11,26 @@ class OllamaService:
         # We cannot use llama 3.2-vision model as it required atleast 8 gb of VRAM which is not avaialble in our server.
         # https://ollama.com/blog/llama3.2-vision
 
-        template = self.cfg['ollama']['template']
+        instruction = f"""
+                Your task is to extract invoice data from the Input text.
+
+                Reply Structures:
+                - Amount 
+                - Due_date 
+                - Biller_name   
+
+                Reply with valid json. Please make sure Due_date is in year-month-day format and Biller_name has only a few words
+            """
+        instruction_text = (
+            f"Below is an instruction that describes a task. "
+            f"Write a response that appropriately completes the request."
+            f"\n\n### Instruction:\n{instruction}"
+        )
+
+        input_text = "\n\n### Input:\n'{context}'"
+        desired_response = f"\n\n### Response:\n"
+        template = instruction_text + input_text + desired_response
+
         prompt = ChatPromptTemplate.from_template(template)
         model = OllamaLLM(model=self.cfg['ollama']['model'], base_url=self.cfg['ollama']['host'])
         self.chain = prompt | model

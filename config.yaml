@@ -40,8 +40,8 @@ GOOGLE_API:
   no_of_drive_files: 20
   drive_folder_name: 'track_my_bill_content'
 ollama:
-  host: 'http://192.168.0.160:11434'
-  model: 'llama3.1:8b'
+  host: 'http://127.0.0.1:11434' #'http://192.168.0.160:11434'
+  model: 'llama-3.2-3B-instruct-q8-invoice:latest' #'llama3.1:8b'
   template_deleted: '
         You are expert in finding the entities from the test and extract relevant information and return only the JSON with the following content. 
         Find the amount to be paid, due date, and get the biller name(just the name only) in the following formats:
