@@ -154,7 +154,7 @@ class Download:
             self.logger.info(f"file: {file['name']} is deleted from Google Drive") 
             file_path=self.cfg['dir']+"/"+file['name']
             self.process.read_and_process(file_path, payment_method="")
-          if str(file["mimeType"]) == str("image/png") or str(file["mimeType"]) == str("image/jpeg"):
+          if str(file["mimeType"]) == str("image/png"):
             self.logger.info(f"Downloading: {file['name']} is started") 
             self.downloadfiles(file['id'], file['name'])
             self.drive_service.files().delete(fileId=file['id']).execute()
