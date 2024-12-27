@@ -68,7 +68,8 @@ class Download:
 
           # Code for getting only email we want to track
           proceed = False
-          subject_found = [True if subject.find(s) != -1 else False  for s in self.subjects]
+          #subject_found = [True if subject.find(s) != -1 else False  for s in self.subjects]
+          subject_found = [True if subject in s else False  for s in self.subjects]
           sender_found = [True if sender.find(sen) != -1 else False  for sen in self.senders]
           res_sub = list(compress(range(len(subject_found)), subject_found))
           download_method = ""
