@@ -6,10 +6,6 @@ class OllamaService:
     def __init__(self):
         with open("config.yaml") as f:
             self.cfg = yaml.load(f, Loader=yaml.FullLoader)
-        
-        # https://python.langchain.com/docs/integrations/llms/ollama/
-        # We cannot use llama 3.2-vision model as it required atleast 8 gb of VRAM which is not avaialble in our server.
-        # https://ollama.com/blog/llama3.2-vision
 
         instruction = f"""
                 Your task is to extract invoice data from the Input text.
