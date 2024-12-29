@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: track-my-bills-flask-app
+spec:
+  selector:
+    matchLabels:
+      app: track-my-bills-flask-app
+  template:
+    metadata:
+      labels:
+        app: track-my-bills-flask-app
+    spec:
+      containers:
+      - name: track-my-bills # Container name for reference
+        image: track_my_bills:latest 
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000 

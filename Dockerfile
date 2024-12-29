@@ -35,12 +35,28 @@ RUN pip install pillow>=6.2.0
 RUN pip install pytesseract>=0.2.6
 RUN pip install werkzeug>=2.0
 
-
+# For the API
+RUN pip install certifi==2018.11.29
+RUN pip install Click>=7.1.2
+RUN pip install Flask>=2.0.1
+RUN pip install gunicorn>=19.9.0
+RUN pip install itsdangerous>=2.0
+RUN pip install Jinja2>=2.10.1
+RUN pip install MarkupSafe>=2.0
+RUN pip install werkzeug>=2.0
+RUN pip install pytest==6.2.3
+RUN pip install pytest-cov==2.11.1
+RUN pip install pylint==2.7.4
 
 WORKDIR /app
 
 # For kubernetes cron job
 COPY . .
 
-CMD ["/bin/bash"]
-#CMD ["python", "main.py"]
+EXPOSE 5000
+
+#For testing
+#CMD ["/bin/bash"]
+
+# For production
+CMD ["python", "app.py"]
