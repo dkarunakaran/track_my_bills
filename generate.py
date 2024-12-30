@@ -52,7 +52,9 @@ class Generate:
                                 self.logger.info(f"TASK API update operation '{content[1]}' started")
                                 result = self.task_service.tasks().patch(tasklist=tasklist_id, task=task_id, body=taskdata).execute()
                             self.logger.debug(result)
-                            self.delete_content(id=content[0])
+                            # Insted delete, do the update operation
+                            #self.delete_content(id=content[0])
+                            self.update_content(id=content[0])
                     self.logger.info("All Tasks are created/updated")
                 except Exception as err:
                     self.logger.error(f"Unexpected {err=}, {type(err)=}")
@@ -90,6 +92,11 @@ class Generate:
     
     def delete_content(self, id):
         query = f"DELETE FROM Content WHERE id={id}"
+        self.sql_db.cursor.execute(query)
+        self.sql_db.conn.commit()
+
+    def update_content(self, id):
+        query = f"UPDATE Content SET processed=1 WHERE id={id}"
         self.sql_db.cursor.execute(query)
         self.sql_db.conn.commit()
 

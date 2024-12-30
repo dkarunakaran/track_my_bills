@@ -3,29 +3,29 @@ from googleapiclient.errors import HttpError
 import base64
 from bs4 import BeautifulSoup
 import yaml
-from utility import logger_helper, authenticate
+from utility import logger_helper, authenticate, get_keywords_data_from_db
 from itertools import compress 
 import time
 from process import Process
 import io
-import argparse
 from tqdm import tqdm
 from googleapiclient.http import MediaIoBaseDownload
-import re
-
 from PIL import Image
 import pytesseract
-import cv2
-import os
+import sqlite3
+import re
 
 class Download:
   def __init__(self):
     with open("config.yaml") as f:
       self.cfg = yaml.load(f, Loader=yaml.FullLoader)
-    self.subjects = self.cfg['GOOGLE_API']['subjects']
-    self.senders = self.cfg['GOOGLE_API']['senders']
-    self.payment_methods = self.cfg['GOOGLE_API']['payment_methods']
-    self.download_methods = self.cfg['GOOGLE_API']['download_methods']
+    # Moving to DB approach
+    #self.subjects = self.cfg['GOOGLE_API']['subjects']
+    #self.senders = self.cfg['GOOGLE_API']['senders']
+    #self.payment_methods = self.cfg['GOOGLE_API']['payment_methods']
+    #self.download_methods = self.cfg['GOOGLE_API']['download_methods']
+    self.subjects, self.payment_methods, self.download_methods, self.senders = get_keywords_data_from_db()
+
     self.logger = logger_helper()
     self.process = Process(logger=self.logger)
 
@@ -64,7 +64,8 @@ class Download:
             if d['name'] == 'Subject':
               subject = d['value']
             if d['name'] == 'From':
-              sender = d['value']
+              match = re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', d['value'])
+              sender = match.group(0)
 
           # Code for getting only email we want to track
           proceed = False

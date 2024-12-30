@@ -1,0 +1,211 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<nav class="navbar bg-dark border-bottom border-1 border-danger" data-bs-theme="dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#"><span class="title_color">TrackMyBill</span></a>
+  </div>
+</nav>
+<div class="container text-center padding_top">
+
+  <div class="row">
+    <div class="col-8">
+      <h5>Bill Details</h5>
+      <hr/>
+      <table class="table table-striped">
+        <thead>
+            <tr>
+            <th><p class="fs-6 fw-semibold">#</p></th>
+            <th><p class="fs-6 fw-semibold">Name</p></th>
+            <th><p class="fs-6 fw-semibold">Due Date</p></th>
+            <th><p class="fs-6 fw-semibold">Amount</p></th>
+            <th><p class="fs-6 fw-semibold">Payment Method</p></th>
+            <th><p class="fs-6 fw-semibold">Paid</p></th>
+            <th><p class="fs-6 fw-semibold">Added to Task</p></th>
+            <th><p class="fs-6 fw-semibold">Created date</p></th>
+            </tr>
+        </thead>
+        <tbody>
+          {%for id, name, date, amount, payment, processed, paid, created_date in contents%}
+          <tr>
+            <td> <p class="fs-6">{{id}}</p> </td>
+            <td> <p class="fs-6">{{name}}</p> </td>
+            <td> <p class="fs-6">{{date}}</p> </td>
+            <td> <p class="fs-6">{{amount}}</p> </td>
+            <td> <p class="fs-6">{{payment}}</p> </td>
+            <td><p class="fs-6">
+              {% if paid %}
+                True
+              {% else %}
+                False
+              {% endif %}
+              </p>
+            </td>
+            <td><p class="fs-6">
+              {% if processed %}
+                True
+              {% else %}
+                False
+              {% endif %}
+              </p>
+            </td>
+            <td> <p class="fs-6">{{created_date}}</p> </td>
+          </tr>
+          {%endfor%}
+        </tbody>
+      </table>
+    </div>
+    <div class="col-4">
+      <h5> Action Panel</h5>
+      <hr/>
+      <div class="row padding_bottom">
+        <div class="col-8">
+        <button id="action_1" type="button" class="btn btn-primary">Get All Bills</button>
+        </div>
+        <div id="action_1_spinner" class="d-none col-4"> 
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+      </div>
+      <div class="row padding_bottom">
+        <div class="col-8">
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewItemModal">Add Kywrds</button>
+        </div>
+        <div id="action_2_spinner" class="d-none col-4"> 
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+      </div>
+      <div class="row padding_bottom">
+        <div class="col-8">
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewDownloadModal">Add Dwnlod</button>
+        </div>
+        <div id="action_3_spinner" class="d-none col-4"> 
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+      </div>
+      <div class="row padding_bottom">
+        <div class="col-8">
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewPaymentModal">Add Pymnt</button>
+        </div>
+        <div id="action_4_spinner" class="d-none col-4"> 
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+      </div>
+      <div class="row padding_bottom">
+        <div class="col-8">
+          <button id="action_5" type="button" class="btn btn-danger">Del Old Data</button>
+        </div>
+        <div id="action_5_spinner" class="d-none col-4"> 
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Add New Download Method Modal -->
+<div class="modal fade" id="addNewDownloadModal" tabindex="-1" aria-labelledby="addNewDownloadModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addNewDownloadModalLabel">Add New Download Methods</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addDownloadEntryForm">
+          <div class="mb-3">
+            <label class="form-label">Download Method</label>
+            <input type="text" class="form-control" name="download" id="download">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add New Payment Method Modal -->
+<div class="modal fade" id="addNewPaymentModal" tabindex="-1" aria-labelledby="addNewPaymentModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addNewPaymentModalLabel">Add New Download Methods</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addPaymentEntryForm">
+          <div class="mb-3">
+            <label class="form-label">Payment Method</label>
+            <input type="text" class="form-control" name="payment" id="payment">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add New Entry Modal -->
+<div class="modal fade" id="addNewItemModal" tabindex="-1" aria-labelledby="addNewItemModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addNewItemModalLabel">Add New Keyword</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addKWEntryForm">
+          <div class="mb-3">
+            <label class="form-label">Subject</label>
+            <input type="text" class="form-control" name="subject" id="subject">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Payment Methods</label>
+            <select name="payment_methods" class="form-select">
+              <option value="-1" selected>Open this select menu</option>
+              {%for id, name in payment_methods%}
+                <option value="{{id}}">{{name}}</option>
+              {%endfor%}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Download Methods</label>
+            <select name="download_methods" class="form-select">
+              <option value="-1" selected>Open this select menu</option>
+              {%for id, name in download_methods%}
+                <option value="{{id}}">{{name}}</option>
+              {%endfor%}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Sender</label>
+            <input type="text" class="form-control" name="sender" id="sender">
+            <div id="textHelp" class="form-text">If you select 'google_drive_file', then add 'google_drive_file' here as well.</div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

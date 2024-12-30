@@ -33,6 +33,7 @@ class OllamaService:
     
     def query(self, text):
         return self.chain.invoke({"context": text})
+    
 
 
 

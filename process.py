@@ -5,11 +5,13 @@ import re
 from sqlitedb import SqliteDB
 from ollama_service import OllamaService
 import os
-from utility import logger_helper
+from utility import logger_helper, get_keywords_data_from_db
 from os import listdir
 from os.path import isfile, join
 import yaml
 from itertools import compress 
+from datetime import datetime
+import pytz
 
 class Process:
     def __init__(self, logger=None):
@@ -22,6 +24,8 @@ class Process:
             self.logger = logger_helper()
         self.subjects = self.cfg['GOOGLE_API']['subjects']
         self.payment_methods = self.cfg['GOOGLE_API']['payment_methods']
+        self.subjects, self.payment_methods, self.download_methods, self.senders= get_keywords_data_from_db()
+        self.tz = pytz.timezone('Australia/Sydney')
     
     # find_payment_method flag force the code the find the payment method again. In some cases, especially drive files, we do not have specific subject field,
     # so finding the payment method without subject will be hard intitally. Once we get the subject field after LLm processing, we need to initiate
@@ -38,8 +42,14 @@ class Process:
                         # Extracting text from page
                         content += page.extract_text()
                         content += '\n'
+
+                    # Find the payment method if it is empty
+                    find_payment_method = False
+                    if payment_method == "":
+                        find_payment_method = True
+
                     #content = reader.pages[0]
-                    self.llm_check_and_db_insert(content, payment_method)
+                    self.llm_check_and_db_insert(content, payment_method, find_payment_method)
                     os.remove(file_path)
                     self.logger.info(f"file: {file_path} is removed")  
                 else:
@@ -71,9 +81,10 @@ class Process:
                 method_index = res_sub[0]
                 payment_method = self.payment_methods[method_index]
                 self.logger.info(f"Found the payment method: {payment_method}")
-        
+        # DB insert operation
         if self.content_entry_found(result['Biller_name'], result['Due_date'], result['Amount']) == False:
-            self.sql_db.cursor.execute("""INSERT INTO Content (name, date, amount, payment) VALUES (?,?,?,?)""", [result['Biller_name'], result['Due_date'], result['Amount'], payment_method])
+            created_datetime = datetime.now(self.tz)
+            self.sql_db.cursor.execute("""INSERT INTO Content (name, date, amount, payment, processed, created_date) VALUES (?,?,?,?,?,?)""", [result['Biller_name'], result['Due_date'], result['Amount'], payment_method, 0, created_datetime])
             self.sql_db.conn.commit()
             self.logger.info("Data inserted to SQLite")
         else:
@@ -101,7 +112,7 @@ class Process:
         return json_data
 
     def content_entry_found(self, name, date, amount):
-        query = f"SELECT id FROM Content where name LIKE '%{name}%' and date LIKE '%{date}%'and amount LIKE '%{amount}%' LIMIT 1"
+        query = f"SELECT id FROM Content where name LIKE '%{name}%' and date LIKE '%{date}%' LIMIT 1"
         self.sql_db.cursor.execute(query)
         content_id = self.sql_db.cursor.fetchall()
         status = True

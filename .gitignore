@@ -9,7 +9,7 @@ pdfs/*.jpeg
 pdfs/*.JPEG
 data/*.sqlite3
 *.log
-models/sft*
+data/*.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
