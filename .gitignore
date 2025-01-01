@@ -10,6 +10,7 @@ pdfs/*.JPEG
 data/*.sqlite3
 *.log
 data/*.db
+secret.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

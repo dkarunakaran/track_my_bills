@@ -187,6 +187,9 @@ class Download:
         f.write(fh.read())
     self.logger.info(f"Downloading: {dfilespath} is finished") 
 
+
+    
+
 if __name__ == "__main__":
   download = Download()
   #download.get_emails()
