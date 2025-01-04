@@ -54,7 +54,7 @@ ollama:
       "
 invoice_agent:
   host: 'http://192.168.0.160:11434' #'http://127.0.0.1:11434'
-  model_for_API_tool: 'llama3.1:8b'
+  model_for_API_tool: 'qwen2:7b-instruct-q8_0'
   prompt_for_API_tools: "Assistant is a large language model trained by Meta.
 
     Assistant is designed to be able to assist with a wide range of tasks, from answering 

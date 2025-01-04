@@ -78,7 +78,6 @@ class InvoiceAgent:
         self.graph = graph.compile()
         self.tools = {t.name: t for t in tools}
         self.model = model.bind_tools(tools)
-        print(self.graph)
 
     def get_email_invoice(self, state: InvoiceAgentState):
         
@@ -98,7 +97,6 @@ class InvoiceAgent:
     
     def call_llm(self, state: InvoiceAgentState):
         # Compare the data to decide which tool to use
-
         messages = [SystemMessage(content=cfg['invoice_agent']['prompt_for_API_tools']),"What is the meaning of life?"]
         message = self.model.invoke(messages)
         
