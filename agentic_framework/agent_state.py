@@ -1,6 +1,7 @@
 from typing import TypedDict, Annotated, List
 from typing import TypedDict, Annotated
 import operator
+from langchain_core.messages import AnyMessage
 
 
 class InvoiceAgentState(TypedDict):
@@ -13,5 +14,8 @@ class InvoiceAgentState(TypedDict):
     #max_revisions: int
     #email: List[str]
     invoices: Annotated[List[str], operator.add]
-    addSqliteDB: bool
-    bankInfo: List[str]
+    add_sqlite_DB: bool
+    bank_info: List[str]
+    llm_msg: str
+    #api_operation: list[AnyMessage]
+    api_operation: str
