@@ -5,11 +5,27 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 import sqlite3
+import csv
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import and_
+import time
+
+import sys
+parent_dir = ".."
+sys.path.append(parent_dir)
+# Need to import all model files to create table
+import models.content
+import models.base
+import models.payment_methods
+import models.download_methods
+import models.keywords
+
+
 
 # Ref - https://medium.com/pythoneers/beyond-print-statements-elevating-debugging-with-python-logging-715b2ae36cd5
 
 def logger_helper():
-  with open("config.yaml") as f:
+  with open("/app/config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
   logger = logging.getLogger('my_logger')
@@ -78,6 +94,118 @@ def authenticate(cfg):
       token.write(creds.to_json())
 
   return creds
+
+def create_database():
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  models.base.Base.metadata.create_all(models.base.engine) 
+  time.sleep(2)
+  PaymentMethods = models.payment_methods.PaymentMethods
+  DownloadMethods = models.download_methods.DownloadMethods
+  Keywords = models.keywords.Keywords
+  
+
+  # Adding Default values
+  filename = '/app/data/initial_keywords.csv' 
+  with open(filename, 'r') as file:
+    reader = csv.DictReader(file)
+    data = [row for row in reader]
+
+  # Inserting the payment methods and download methods to its respective tables
+  payment = []
+  download = []
+  for row in data:
+      payment.append(row['payment']) 
+      download.append(row['download_method']) 
+
+  # Making the values unique
+  payment = set(payment)
+  download = set(download)
+
+  # Inserting payment methods to its table if the value is not present in the db.
+  p_methods = session.query(PaymentMethods).all()
+  if len(p_methods) > 0:
+      for name in payment:
+        # Query data using 'like' and 'where'
+        search_term = f"{name}%"  # Search for names
+        id = session.query(PaymentMethods).filter(PaymentMethods.name.like(search_term)).first() 
+        # No such method in the db 
+        if id is None:
+            # Create a new PM object
+            pm = PaymentMethods(name=name)
+            # Add the new PM to the session
+            session.add(pm)
+            # Commit the changes to the database
+            session.commit()       
+  else:
+      for name in payment:
+        # Create a new PM object
+        pm = PaymentMethods(name=name)
+        # Add the new PM to the session
+        session.add(pm)
+        # Commit the changes to the database
+        session.commit() 
+  
+  # Inserting download methods to its table if the value is not present in the db.
+  d_methods = session.query(DownloadMethods).all()
+  if len(d_methods) > 0:
+      for name in download:
+        # Query data using 'like' and 'where'
+        search_term = f"{name}%"  # Search for names
+        id = session.query(DownloadMethods).filter(DownloadMethods.name.like(search_term)).first() 
+        # No such method in the db 
+        if id is None:
+            # Create a new DM object
+            dm = DownloadMethods(name=name)
+            # Add the new DM to the session
+            session.add(dm)
+            # Commit the changes to the database
+            session.commit()         
+  else:
+      for name in download:
+        # Create a new DM object
+        dm = DownloadMethods(name=name)
+        # Add the new DM to the session
+        session.add(dm)
+        # Commit the changes to the database
+        session.commit() 
+
+  # Insert keywords if they are not in db
+  for row in data:
+      # Query data using 'like' and 'where'
+      sub_search_term = f"%{row['subject']}%"  # Search for subjects
+      sender_search_term = f"%{row['sender']}%"  # Search for sender
+      keyword_id = session.query(Keywords).filter(and_(Keywords.subject.like(sub_search_term), Keywords.sender.like(sender_search_term))).first() 
+
+      # No such keywords in the db 
+      if keyword_id is None:
+          
+          # Get the payment_id
+          search_term = f"{row['payment']}%"  # Search for names
+          payment= session.query(PaymentMethods).filter(PaymentMethods.name.like(search_term)).first() 
+          if payment:
+            payment_id = payment.id
+          else:
+            raise Exception("No payment id found")
+             
+
+          # Get the download_id
+          search_term = f"{row['download_method']}%"  # Search for names
+          download = session.query(DownloadMethods).filter(DownloadMethods.name.like(search_term)).first() 
+          if download:
+            download_id = download.id
+          else:
+            raise Exception("No payment id found")
+          
+
+          # Create a new KW object
+          kw = Keywords(subject=row['subject'], payment_method_id=payment_id,download_method_id=download_id,sender=row['sender'])
+          # Add the new KW to the session
+          session.add(kw)
+          # Commit the changes to the database
+          session.commit() 
+          session.close()
+
 
 def get_keywords_data_from_db():
   subjects = []

@@ -52,6 +52,9 @@ ollama:
 
         Reply with valid json. Please make sure Due_date is in year-month-day format and Biller_name has only a few words
       "
+sql_alchemy:
+  loc: '/app/data'
+  db: 'data.db'
 invoice_agent:
   host: 'http://192.168.0.160:11434' #'http://127.0.0.1:11434'
   model_for_API_tool: 'qwen2:7b-instruct-q8_0'

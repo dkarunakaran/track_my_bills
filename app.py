@@ -8,96 +8,15 @@ import time
 from main import run
 import yaml
 import csv
-from utility import get_keywords_data_from_db
+from utility import create_database
+
 
 app = Flask(__name__)
-sql_db = SqliteDB()
+#sql_db = SqliteDB()
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
-def read_csv_file(filename):
-  with open(filename, 'r') as file:
-    reader = csv.DictReader(file)
-    data = [row for row in reader]
-
-  return data
-
-def add_data_by_default():
-    filename = 'data/initial_keywords.csv'  # Assuming your CSV file is named 'keywords.csv'
-    data = read_csv_file(filename)
-
-    # Inserting the payment methods and download methods to its respective tables
-    payment = []
-    download = []
-    for row in data:
-        payment.append(row['payment']) 
-        download.append(row['download_method']) 
-
-    # Making the values unique
-    payment = set(payment)
-    download = set(download)
-
-    # Inserting payment methods to its table if the value is not present in the db.
-    conn = sqlite3.connect('data/data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM Payment_methods') 
-    p_methods = cursor.fetchall()
-    if len(p_methods) > 0:
-        for name in payment:
-            query = f"SELECT payment_method_id FROM Payment_methods where name LIKE '{name}%'"
-            cursor.execute(query)
-            id = cursor.fetchone()
-            # No such method in the db 
-            if id is None:
-                cursor.execute("""INSERT INTO Payment_methods (name) VALUES (?)""", [name])
-                conn.commit()        
-    else:
-        for name in payment:
-            cursor.execute("""INSERT INTO Payment_methods (name) VALUES (?)""", [name])
-            conn.commit()
-
-    # Inserting download methods to its table if the value is not present in the db.
-    conn = sqlite3.connect('data/data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM Download_methods') 
-    p_methods = cursor.fetchall()
-    if len(p_methods) > 0:
-        for name in download:
-            query = f"SELECT download_method_id FROM Download_methods where name LIKE '{name}%'"
-            cursor.execute(query)
-            id = cursor.fetchone()
-            # No such method in the db 
-            if id is None:
-                cursor.execute("""INSERT INTO Download_methods (name) VALUES (?)""", [name])
-                conn.commit()        
-    else:
-        for name in download:
-            cursor.execute("""INSERT INTO Download_methods (name) VALUES (?)""", [name])
-            conn.commit()
-
-    # Insert keywords if they are not in db
-    for row in data:
-        cursor.execute(f"SELECT id FROM Keywords where subject LIKE '%{row['subject']}%' and sender LIKE '%{row['sender']}%'") 
-        keyword_id = cursor.fetchone()
-
-        # No such keywords in the db 
-        if keyword_id is None:
-            
-            # Get the payment_id
-            query = f"SELECT payment_method_id FROM Payment_methods where name LIKE '{row['payment']}%'"
-            cursor.execute(query)
-            payment_id = cursor.fetchone()[0]
-
-            # Get the download_id
-            query = f"SELECT download_method_id FROM Download_methods where name LIKE '{row['download_method']}%'"
-            cursor.execute(query)
-            download_id = cursor.fetchone()[0]
-
-            cursor.execute("""INSERT INTO Keywords (subject, payment_method_id, download_method_id, sender) VALUES (?, ?, ?, ?)""", [row['subject'], payment_id, download_id, row['sender']])
-            conn.commit()  
-
-
-add_data_by_default()
+create_database()
 
 @app.route('/')
 def index():

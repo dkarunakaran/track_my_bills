@@ -52,6 +52,8 @@ RUN pip install pylint==2.7.4
 RUN pip install langgraph==0.2.60 
 RUN pip install langgraph-checkpoint-sqlite==2.0.1
 
+RUN pip install sqlalchemy==1.4.41
+
 WORKDIR /app
 
 # For kubernetes cron job
@@ -60,7 +62,7 @@ COPY . .
 EXPOSE 5000
 
 #For testing
-CMD ["/bin/bash"]
+#CMD ["/bin/bash"]
 
 # For production
-#CMD ["python", "app.py"]
+CMD ["python", "app.py"]

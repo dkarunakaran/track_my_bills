@@ -9,6 +9,14 @@ from agent_state import InvoiceAgentState
 from langchain.agents import Tool
 from langchain.tools import BaseTool
 import random
+from agent_nodes import get_emails_invoice_node
+import sqlitedb
+import sys
+parent_dir = ".."
+sys.path.append(parent_dir)
+import utility
+
+
 
 memory = SqliteSaver.from_conn_string(":memory:")
 # download = Download()
@@ -56,6 +64,9 @@ random_tool = Tool(
 
 class InvoiceAgent:
     def __init__(self, model, tools, system=""):
+        # Creating databse if not existed
+        utility.create_database()
+
         self.system = system
         graph = StateGraph(InvoiceAgentState)
         graph.add_node("email-invoices", self.get_email_invoice)
@@ -80,6 +91,8 @@ class InvoiceAgent:
         self.model = model.bind_tools(tools)
 
     def get_email_invoice(self, state: InvoiceAgentState):
+        
+        get_emails_invoice_node()
         
         return {'invoices': ["hi1"]}
 
