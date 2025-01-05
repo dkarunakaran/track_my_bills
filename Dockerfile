@@ -62,7 +62,7 @@ COPY . .
 EXPOSE 5000
 
 #For testing
-#CMD ["/bin/bash"]
+CMD ["/bin/bash"]
 
 # For production
-CMD ["python", "app.py"]
+#CMD ["python", "app.py"]

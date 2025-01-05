@@ -77,8 +77,8 @@ def authenticate(cfg):
   # The file token.json stores the user's access and refresh tokens, and is
   # created automatically when the authorization flow completes for the first
   # time.
-  if os.path.exists("token.json"):
-    creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+  if os.path.exists("/app/token.json"):
+    creds = Credentials.from_authorized_user_file("/app/token.json", SCOPES)
 
   # If there are no (valid) credentials available, let the user log in.
   if not creds or not creds.valid:
@@ -86,11 +86,11 @@ def authenticate(cfg):
       creds.refresh(Request())
     else:
       flow = InstalledAppFlow.from_client_secrets_file(
-          "credentials.json", SCOPES
+          "/app/credentials.json", SCOPES
       )
       creds = flow.run_console(port=0)
     # Save the credentials for the next run
-    with open("token.json", "w") as token:
+    with open("/app/token.json", "w") as token:
       token.write(creds.to_json())
 
   return creds
@@ -104,7 +104,6 @@ def create_database():
   DownloadMethods = models.download_methods.DownloadMethods
   Keywords = models.keywords.Keywords
   
-
   # Adding Default values
   filename = '/app/data/initial_keywords.csv' 
   with open(filename, 'r') as file:
@@ -212,26 +211,26 @@ def get_keywords_data_from_db():
   payment_methods = []
   download_methods = []
   senders = []
-  conn = sqlite3.connect('data/data.db')
-  cursor = conn.cursor()
-  cursor.execute("SELECT * FROM Keywords") 
-  keywords = cursor.fetchall()
-  for item in keywords:
-      subjects.append(item[1])
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  PaymentMethods = models.payment_methods.PaymentMethods
+  DownloadMethods = models.download_methods.DownloadMethods
+  Keywords = models.keywords.Keywords
+  keywords = session.query(Keywords).all()
+  for keyword in keywords:
+    # Getting subject
+    subjects.append(keyword.subject)
 
-      # Getting payment name
-      query = f"SELECT name FROM Payment_methods where payment_method_id={item[2]}"
-      cursor.execute(query)
-      payment = cursor.fetchone()[0]
-      payment_methods.append(payment)
+    # Getting payment name
+    payment= session.query(PaymentMethods).filter(PaymentMethods.id == keyword.payment_method_id).first() 
+    payment_methods.append(payment.name)
 
-      # Getting download name
-      query = f"SELECT name FROM Download_methods where download_method_id={item[3]}"
-      cursor.execute(query)
-      download = cursor.fetchone()[0]
-      download_methods.append(download)
+    # Getting download name
+    download= session.query(DownloadMethods).filter(DownloadMethods.id == keyword.download_method_id).first() 
+    download_methods.append(download.name)
 
-      senders.append(item[4])
+    # Getting sender
+    senders.append(keyword.sender)
 
   return subjects, payment_methods, download_methods, senders
    

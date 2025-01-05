@@ -5,12 +5,14 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_ollama import ChatOllama
 import yaml
-from agent_state import InvoiceAgentState
 from langchain.agents import Tool
 from langchain.tools import BaseTool
 import random
-from agent_nodes import get_emails_invoice_node
-import sqlitedb
+from agent_state import InvoiceAgentState
+from agent_node_helper import process_email_checker
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
 import sys
 parent_dir = ".."
 sys.path.append(parent_dir)
@@ -41,9 +43,6 @@ memory = SqliteSaver.from_conn_string(":memory:")
 # Ref 3: https://learn.deeplearning.ai/courses/ai-agents-in-langgraph/lesson/7/essay-writer
 # Ref 4: https://medium.com/@lorevanoudenhove/how-to-build-ai-agents-with-langgraph-a-step-by-step-guide-5d84d9c7e832
 
-with open("/app/config.yaml") as f:
-    cfg = yaml.load(f, Loader=yaml.FullLoader)
-
 def meaning_of_life(input=""):
     return 'The meaning of life is 42 if rounded but is actually 42.17658'
 
@@ -63,18 +62,21 @@ random_tool = Tool(
 )
 
 class InvoiceAgent:
-    def __init__(self, model, tools, system=""):
+    def __init__(self, tools, system=""):
         # Creating databse if not existed
         utility.create_database()
-
+        self.logger = utility.logger_helper()
+        with open("/app/config.yaml") as f:
+            self.cfg = yaml.load(f, Loader=yaml.FullLoader)
+        model = ChatOllama(model=self.cfg['invoice_agent']['model_for_API_tool'], base_url=self.cfg['invoice_agent']['host'])
         self.system = system
         graph = StateGraph(InvoiceAgentState)
-        graph.add_node("email-invoices", self.get_email_invoice)
-        graph.add_node("drive-invoices", self.get_drive_invoice)
-        graph.add_node("add-sqlitedb", self.add_to_sqlite_db)
-        graph.add_node("extract-bank-info", self.extract_bank_info)
-        graph.add_node("llm", self.call_llm)
-        graph.add_node("take_action", self.take_action)
+        graph.add_node("email-invoices", self.get_email_invoice_node)
+        graph.add_node("drive-invoices", self.get_drive_invoice_node)
+        graph.add_node("add-sqlitedb", self.add_to_sqlite_db_node)
+        graph.add_node("extract-bank-info", self.extract_bank_info_node)
+        graph.add_node("llm", self.call_llm_node)
+        graph.add_node("take_action", self.take_action_node)
         graph.set_entry_point("email-invoices")
         graph.add_edge("email-invoices", "drive-invoices") 
         graph.add_edge("drive-invoices", "add-sqlitedb") 
@@ -90,27 +92,73 @@ class InvoiceAgent:
         self.tools = {t.name: t for t in tools}
         self.model = model.bind_tools(tools)
 
-    def get_email_invoice(self, state: InvoiceAgentState):
+    def google_api_authentication(self, type:str):
+
+        # Authenticate with GOOGLE API
+        creds = utility.authenticate(self.cfg)
+        self.logger.info(f"Authenticated for {type} API")
+
+        # Define GMAIL API service
+        if type == 'GMAIL':
+            return build("gmail", "v1", credentials=creds)
+        else:
+            return build('drive', 'v3', credentials=creds)
         
-        get_emails_invoice_node()
+
+    def get_email_invoice_node(self, state: InvoiceAgentState):
+        self.logger.info("Reading the email using GMAIL API")
+        subjects, payment_methods, download_methods, senders = utility.get_keywords_data_from_db()
+        # Authenticate with GOOGLE API
+        creds = utility.authenticate(self.cfg)
+        # Define GMAIL API service
+        gmail_service = self.google_api_authentication(type='GMAIL')
+        result = gmail_service.users().messages().list(maxResults=self.cfg['GOOGLE_API']['no_emails'], userId='me').execute()
+        messages = result.get('messages')
+        self.logger.info("Got the mails and processing now")
+        # messages is a list of dictionaries where each dictionary contains a message id.
+        # iterate through all the messages
+        for msg in messages:
+            # Get the message from its id
+            txt = gmail_service.users().messages().get(userId='me', id=msg['id']).execute()
+            # Use try-except to avoid any Errors
+            multiple_pdf_data = []
+            path = None
+            try:
+                proceed, payment_method, download_method, subject = process_email_checker(subjects, payment_methods, download_methods, senders, txt)
+                self.logger.info(f"We have read: '{subject}'")
+                if proceed == True:
+                    self.logger.info(f"Processing: '{subject}' started")
+                    payload = txt['payload']
+                    for part in payload['parts']:
+                        if part['mimeType'] == 'text/plain' and download_method == 'email_body':
+                            text = utility.get_data_email_body()
+                        elif part['mimeType'] == 'application/pdf':
+                            pass
+                        elif part['mimeType'] == 'multipart/mixed':
+                            pass
+            except Exception as err:
+                self.logger.error(f"Unexpected {err=}, {type(err)=}")
+        
+        
+        
         
         return {'invoices': ["hi1"]}
 
-    def get_drive_invoice(self, state: InvoiceAgentState):
+    def get_drive_invoice_node(self, state: InvoiceAgentState):
 
         return {'invoices': ["hi2"]}
     
-    def add_to_sqlite_db(self, state: InvoiceAgentState):
+    def add_to_sqlite_db_node(self, state: InvoiceAgentState):
 
         return {'add_sqlite_DB': True}
     
-    def extract_bank_info(self, state: InvoiceAgentState):
+    def extract_bank_info_node(self, state: InvoiceAgentState):
 
         return {'bank_info': ['sdds','fgfg']}
     
-    def call_llm(self, state: InvoiceAgentState):
+    def call_llm_node(self, state: InvoiceAgentState):
         # Compare the data to decide which tool to use
-        messages = [SystemMessage(content=cfg['invoice_agent']['prompt_for_API_tools']),"What is the meaning of life?"]
+        messages = [SystemMessage(content=self.cfg['invoice_agent']['prompt_for_API_tools']),"What is the meaning of life?"]
         message = self.model.invoke(messages)
         
         return {'llm_msg': message}
@@ -119,7 +167,7 @@ class InvoiceAgent:
         result = state['llm_msg']
         return len(result.tool_calls) > 0
     
-    def take_action (self, state: InvoiceAgentState):
+    def take_action_node(self, state: InvoiceAgentState):
         tool_calls = state['llm_msg'].tool_calls
         results = []
     
@@ -136,11 +184,10 @@ class InvoiceAgent:
         return {'api_operation': results}
 
 if __name__ == "__main__":
-    model = ChatOllama(model=cfg['invoice_agent']['model_for_API_tool'], base_url=cfg['invoice_agent']['host'])
     tools = [random_tool, life_tool]
     initial_state = InvoiceAgentState()
     initial_state['invoices'] = ['None']
-    agent = InvoiceAgent(model, tools, system='')
+    agent = InvoiceAgent(tools, system='')
     result = agent.graph.invoke(initial_state)
     print(result)
 
