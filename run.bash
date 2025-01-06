@@ -11,6 +11,9 @@ if [ "$username" == "beastan" ]; then
 elif [ "$username" == "serverettan" ]; then
     echo "We are running the docker container on $username's computer."
     docker run --net host --gpus all -it -v /home/$username/Documents/projects/track_my_bills:/app track_my_bills
+elif [ "$username" == "codespace" ]; then
+    echo "We are running the docker container on $username's computer."
+    docker run --net host -it -v /home/$username/projects/track_my_bills:/app track_my_bills
 else
     echo "Wrong system to run this script."
 fi
