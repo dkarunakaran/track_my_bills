@@ -9,6 +9,8 @@ import csv
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import and_
 import time
+from datetime import datetime
+import pytz
 
 import sys
 parent_dir = ".."
@@ -235,12 +237,31 @@ def get_keywords_data_from_db():
   return subjects, payment_methods, download_methods, senders
 
 def content_entry_found(name, date, amount):
-    query = f"SELECT id FROM Content where name LIKE '%{name}%' and date LIKE '%{date}%' LIMIT 1"
-    self.sql_db.cursor.execute(query)
-    content_id = self.sql_db.cursor.fetchall()
+  status = False
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  Content = models.content.Content
+  # Query data using 'like' and 'where'
+  name_search_term = f"%{name}%"  
+  date_search_term = f"%{date}%"  
+  content_id = session.query(Content).filter(and_(Content.name.like(name_search_term), Content.date.like(date_search_term))).first() 
+  if content_id:
     status = True
-    if len(content_id) == 0:
-        status = False
+  session.close()
 
-    return status
+  return status
    
+def insert_content(logger, data):
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  Content = models.content.Content
+  created_datetime = datetime.now(pytz.timezone('Australia/Sydney'))
+  # Create a new content object
+  content = Content(name=data['Biller_name'], date=data['Due_date'], amount=data['Amount'], payment=data['payment_method'], processed=0, created_date=created_datetime)
+  # Add the new content to the session
+  session.add(content)
+  # Commit the changes to the database
+  session.commit() 
+  session.close()
+  logger.info("Data inserted to SQLite")
+     

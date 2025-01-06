@@ -198,8 +198,17 @@ class InvoiceAgent:
         return {'invoices': ["hi2"]}
     
     def add_to_sqlite_db_node(self, state: InvoiceAgentState):
-
-        return {'add_sqlite_DB': True}
+        status = False
+        for data in state['invoices']:
+            if isinstance(data, dict):
+                # DB insert operation
+                if utility.content_entry_found(data['Biller_name'], data['Due_date'], data['Amount']) == False:
+                    utility.insert_content(self.logger, data)
+                    status = True
+                else:
+                    self.logger.info("Data is already exist in SQLite")
+            
+        return {'add_sqlite_DB': status}
     
     def extract_bank_info_node(self, state: InvoiceAgentState):
 
