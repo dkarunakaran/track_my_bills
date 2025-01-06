@@ -233,4 +233,14 @@ def get_keywords_data_from_db():
     senders.append(keyword.sender)
 
   return subjects, payment_methods, download_methods, senders
+
+def content_entry_found(name, date, amount):
+    query = f"SELECT id FROM Content where name LIKE '%{name}%' and date LIKE '%{date}%' LIMIT 1"
+    self.sql_db.cursor.execute(query)
+    content_id = self.sql_db.cursor.fetchall()
+    status = True
+    if len(content_id) == 0:
+        status = False
+
+    return status
    

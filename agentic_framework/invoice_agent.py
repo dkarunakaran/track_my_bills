@@ -9,10 +9,14 @@ from langchain.agents import Tool
 from langchain.tools import BaseTool
 import random
 from agent_state import InvoiceAgentState
-from agent_node_helper import process_email_checker
+from agent_node_helper import process_email_checker,llm_query
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
+import base64
+from bs4 import BeautifulSoup
+import time
+from pypdf import PdfReader
+import os
 import sys
 parent_dir = ".."
 sys.path.append(parent_dir)
@@ -106,6 +110,7 @@ class InvoiceAgent:
         
 
     def get_email_invoice_node(self, state: InvoiceAgentState):
+        return_data = []
         self.logger.info("Reading the email using GMAIL API")
         subjects, payment_methods, download_methods, senders = utility.get_keywords_data_from_db()
         # Authenticate with GOOGLE API
@@ -133,16 +138,60 @@ class InvoiceAgent:
                         if part['mimeType'] == 'text/plain' and download_method == 'email_body':
                             text = utility.get_data_email_body()
                         elif part['mimeType'] == 'application/pdf':
-                            pass
+                            att_id = part['body']['attachmentId']
+                            response = gmail_service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
+                            file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
+                            path = self.cfg['dir']+'/'+part['filename']
+                            multiple_pdf_data.append({'name': path, 'data': file_data})
                         elif part['mimeType'] == 'multipart/mixed':
-                            pass
+                            for p in part['parts']:
+                                if p['mimeType'] == 'application/pdf':
+                                    att_id = p['body']['attachmentId']
+                                    response = gmail_service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
+                                    file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
+                                    path = self.cfg['dir']+'/'+p['filename']
+                                    multiple_pdf_data.append({'name': path, 'data': file_data})
+
+                    if len(multiple_pdf_data) > 0:
+                        self.logger.info("Saving the attachments to a folder")
+                        content = ""
+                        for file_data in multiple_pdf_data:
+                            file_path = file_data['name']
+                            with open(file_data['name'], 'wb') as f:
+                                f.write(file_data['data'])
+                            time.sleep(3)
+                            self.logger.info(f"file: {file_path} is processing")
+                            # Creating a pdf reader object
+                            reader = PdfReader(file_path)
+                            content = ""
+                            for page in reader.pages:
+                                # Extracting text from page
+                                content += page.extract_text()
+                                content += '\n'
+                            os.remove(file_path)
+                            self.logger.info(f"file: {file_path} is removed")  
+                        text = content
+
+                    # Find the payment method if it is empty
+                    find_payment_method = False
+                    if payment_method == "":
+                        find_payment_method = True
+
+                    biller_name, due_date, amount, payment_method = llm_query(self.logger, subjects, payment_methods, text, payment_method, find_payment_method)
+            
+                    return_data.append({
+                        'Biller_name': biller_name,
+                        'Due_date': due_date,
+                        'Amount': amount,
+                        'payment_method': payment_method
+                    })
+
             except Exception as err:
                 self.logger.error(f"Unexpected {err=}, {type(err)=}")
+                return_data.append({})
         
         
-        
-        
-        return {'invoices': ["hi1"]}
+        return {'invoices': return_data}
 
     def get_drive_invoice_node(self, state: InvoiceAgentState):
 

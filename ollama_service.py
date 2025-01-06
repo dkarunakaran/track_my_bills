@@ -2,6 +2,7 @@ from ollama import Client
 import yaml
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.llms import OllamaLLM
+
 class OllamaService:
     def __init__(self):
         with open("config.yaml") as f:
@@ -34,7 +35,6 @@ class OllamaService:
     def query(self, text):
         return self.chain.invoke({"context": text})
     
-
 
 
 if __name__=="__main__":

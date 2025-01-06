@@ -1,6 +1,6 @@
 maintainer: Dhanoop Karunakaran
 debug: True
-dir: 'pdfs'
+dir: '/app/pdfs'
 GOOGLE_API:
   no_emails: 50
   subjects:
