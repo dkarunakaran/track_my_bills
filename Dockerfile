@@ -53,6 +53,7 @@ RUN pip install langgraph==0.2.60
 RUN pip install langgraph-checkpoint-sqlite==2.0.1
 
 RUN pip install sqlalchemy==1.4.41
+RUN pip install -q -U google-generativeai
 
 WORKDIR /app
 

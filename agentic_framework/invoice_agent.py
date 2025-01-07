@@ -9,7 +9,7 @@ from langchain.agents import Tool
 from langchain.tools import BaseTool
 import random
 from agent_state import InvoiceAgentState
-from agent_node_helper import process_email_checker,llm_query
+from agent_node_helper import process_email_checker, llm_query, get_the_text_data_email, get_JSON
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import base64
@@ -21,6 +21,7 @@ import sys
 parent_dir = ".."
 sys.path.append(parent_dir)
 import utility
+import google_ai_studio_services
 
 
 
@@ -95,6 +96,7 @@ class InvoiceAgent:
         self.graph = graph.compile()
         self.tools = {t.name: t for t in tools}
         self.model = model.bind_tools(tools)
+        self.gen_ai_google = google_ai_studio_services.GoogleAIStudioServices()
 
     def google_api_authentication(self, type:str):
 
@@ -110,7 +112,10 @@ class InvoiceAgent:
         
 
     def get_email_invoice_node(self, state: InvoiceAgentState):
-        return_data = []
+        return_dict = []
+        return_text = []
+        text_data = None
+        dict_data = None
         self.logger.info("Reading the email using GMAIL API")
         subjects, payment_methods, download_methods, senders = utility.get_keywords_data_from_db()
         # Authenticate with GOOGLE API
@@ -126,80 +131,48 @@ class InvoiceAgent:
             # Get the message from its id
             txt = gmail_service.users().messages().get(userId='me', id=msg['id']).execute()
             # Use try-except to avoid any Errors
-            multiple_pdf_data = []
-            path = None
             try:
-                proceed, payment_method, download_method, subject = process_email_checker(subjects, payment_methods, download_methods, senders, txt)
+                proceed, payment_method, download_method, subject, kw_subject, kw_sender = process_email_checker(subjects, payment_methods, download_methods, senders, txt)
                 self.logger.info(f"We have read: '{subject}'")
                 if proceed == True:
                     self.logger.info(f"Processing: '{subject}' started")
                     payload = txt['payload']
-                    for part in payload['parts']:
-                        if part['mimeType'] == 'text/plain' and download_method == 'email_body':
-                            text = utility.get_data_email_body()
-                        elif part['mimeType'] == 'application/pdf':
-                            att_id = part['body']['attachmentId']
-                            response = gmail_service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
-                            file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
-                            path = self.cfg['dir']+'/'+part['filename']
-                            multiple_pdf_data.append({'name': path, 'data': file_data})
-                        elif part['mimeType'] == 'multipart/mixed':
-                            for p in part['parts']:
-                                if p['mimeType'] == 'application/pdf':
-                                    att_id = p['body']['attachmentId']
-                                    response = gmail_service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
-                                    file_data = base64.urlsafe_b64decode(response.get('data').encode('UTF-8'))
-                                    path = self.cfg['dir']+'/'+p['filename']
-                                    multiple_pdf_data.append({'name': path, 'data': file_data})
 
-                    if len(multiple_pdf_data) > 0:
-                        self.logger.info("Saving the attachments to a folder")
-                        content = ""
-                        for file_data in multiple_pdf_data:
-                            file_path = file_data['name']
-                            with open(file_data['name'], 'wb') as f:
-                                f.write(file_data['data'])
-                            time.sleep(3)
-                            self.logger.info(f"file: {file_path} is processing")
-                            # Creating a pdf reader object
-                            reader = PdfReader(file_path)
-                            content = ""
-                            for page in reader.pages:
-                                # Extracting text from page
-                                content += page.extract_text()
-                                content += '\n'
-                            os.remove(file_path)
-                            self.logger.info(f"file: {file_path} is removed")  
-                        text = content
-
+                    # Get the text data from email
+                    text_data = get_the_text_data_email(gmail_service, self.logger, self.cfg, msg, payload, download_method)
+                    
                     # Find the payment method if it is empty
                     find_payment_method = False
                     if payment_method == "":
                         find_payment_method = True
 
-                    biller_name, due_date, amount, payment_method = llm_query(self.logger, subjects, payment_methods, text, payment_method, find_payment_method)
-            
-                    return_data.append({
+                    biller_name, due_date, amount, payment_method = llm_query(self.logger, subjects, payment_methods, text_data, payment_method, find_payment_method)
+
+                    dict_data = {
                         'Biller_name': biller_name,
                         'Due_date': due_date,
                         'Amount': amount,
-                        'payment_method': payment_method
-                    })
+                        'payment_method': payment_method,
+                        'kw_subject': kw_subject,
+                        'kw_sender': kw_sender
+                    }
+                    return_dict.append(dict_data)
+                    return_text.append(text_data)
 
             except Exception as err:
-                self.logger.error(f"Unexpected {err=}, {type(err)=}")
-                return_data.append({})
+                self.logger.error(f"Unexpected {err=}, {type(err)=} at get_email_invoice_node")
+                return_dict.append(dict_data)
+                return_text.append(text_data)
+                
         
-        
-        return {'invoices': return_data}
+        return {'invoices_dict': return_dict, 'invoices_text':return_text}
 
-    def get_drive_invoice_node(self, state: InvoiceAgentState):
-
-        return {'invoices': ["hi2"]}
+    def get_drive_invoice_node(self, state: InvoiceAgentState):\
+        return {'invoices_dict': [None], 'invoices_text':[None]}
     
     def add_to_sqlite_db_node(self, state: InvoiceAgentState):
         status = False
-        for data in state['invoices']:
+        for data in state['invoices_dict']:
             if isinstance(data, dict):
                 # DB insert operation
                 if utility.content_entry_found(data['Biller_name'], data['Due_date'], data['Amount']) == False:
@@ -211,8 +184,25 @@ class InvoiceAgent:
         return {'add_sqlite_DB': status}
     
     def extract_bank_info_node(self, state: InvoiceAgentState):
+        return_data = []
+        try:
+            for data in state['invoices_text']:
+                if data:
+                    result = self.gen_ai_google.generate_content(self.cfg['invoice_agent']['prompt_for_bank_info']+data)
+                    self.logger.debug(f"Data from Google AI Studio: {result}")
+                    json_data = get_JSON(result, logger=self.logger)
+                    if json_data:
+                        return_data.append(json_data)
+                    else:
+                        return_data.append(None)
+                else:
+                    return_data.append(None)
 
-        return {'bank_info': ['sdds','fgfg']}
+        except Exception as err:
+                self.logger.error(f"Unexpected {err=}, {type(err)=} at extract_bank_info_node")
+                return_data.append(None)
+
+        return {'bank_info': return_data}
     
     def call_llm_node(self, state: InvoiceAgentState):
         # Compare the data to decide which tool to use
@@ -244,7 +234,8 @@ class InvoiceAgent:
 if __name__ == "__main__":
     tools = [random_tool, life_tool]
     initial_state = InvoiceAgentState()
-    initial_state['invoices'] = ['None']
+    initial_state['invoices_dict'] = [None]
+    initial_state['invoices_text'] = [None]
     agent = InvoiceAgent(tools, system='')
     result = agent.graph.invoke(initial_state)
     print(result)

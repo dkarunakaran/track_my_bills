@@ -1,5 +1,5 @@
 # models/content.py
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from .base import Base
 
 class Content(Base):
@@ -11,4 +11,5 @@ class Content(Base):
     payment = Column(String)
     processed = Column(String)
     paid = Column(Integer, default=0)
+    group_id = Column(Integer, ForeignKey('group.id'))
     created_date = Column(String)

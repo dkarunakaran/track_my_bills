@@ -78,3 +78,10 @@ invoice_agent:
     provide valuable insights and information on a wide range of topics. Whether you need 
     help with a specific question or just want to have a conversation about a particular 
     topic, Assistant is here to assist."
+
+  prompt_for_bank_info: "extract the payment details from the content added below and put the result in a JSON format and do not add any addition text. 
+    For BPay payment, json should contain biller_code and reference_number.
+    For bank details, json should contain bsb and account_number.
+    no need of any other details including payment details key. But specify whether it is a bank account, BPay, or credit card as type in the JSON result.
+    content is as follows: 
+    "

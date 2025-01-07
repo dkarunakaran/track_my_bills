@@ -1,11 +1,11 @@
-subject,payment,download_method,sender
-FDC Invoice Dev,Manual,attachment,mariaka1@me.com
-Your Energy Locals Urban Invoice,Direct Debit,attachment,billing@urban.energylocals.com.au
-Sydney Water eBill,Bpay,email_body,sender@sydneywater.com.au
-Uniti Retail Pty Ltd - Invoice,Manual,email_body,support@unitiinternet.com
-Telstra Upfront Mobile Plan,Credit Card,google_drive_file,google_drive_file
-Strata Plan100063 91 GRIMA STREET,Bpay,attachment,notices@netstrata.com.au
-NA,Bpay,attachment,dhanooponline@gmail.com
-Uniti Retail Pty Ltd,Manual,google_drive_file,google_drive_file
-General Insurance Australia,Credit Card,google_drive_file,google_drive_file
-NRMA Insurance,Credit Card,google_drive_file,google_drive_file
+subject,payment,download_method,sender,group
+FDC Invoice Dev,Manual,attachment,mariaka1@me.com,Maria Daycare
+Your Energy Locals Urban Invoice,Direct Debit,attachment,billing@urban.energylocals.com.au,Energy Locals
+Sydney Water eBill,Bpay,email_body,sender@sydneywater.com.au,Sydney Water
+Uniti Retail Pty Ltd - Invoice,Manual,email_body,support@unitiinternet.com,Uniti Retail
+Telstra Upfront Mobile Plan,Credit Card,google_drive_file,google_drive_file,Telstra
+Strata Plan100063 91 GRIMA STREET,Bpay,attachment,notices@netstrata.com.au,Wattle Strata
+NA,Bpay,attachment,dhanooponline@gmail.com,NA
+Uniti Retail Pty Ltd,Manual,google_drive_file,google_drive_file,Uniti Retail
+General Insurance Australia,Credit Card,google_drive_file,google_drive_file,Car Insurance
+NRMA Insurance,Credit Card,google_drive_file,google_drive_file,Car Insurance

@@ -5,9 +5,10 @@ from langchain_core.messages import AnyMessage
 
 
 class InvoiceAgentState(TypedDict):
-    invoices: Annotated[List[dict], operator.add]
+    invoices_dict: Annotated[List[dict], operator.add]
+    invoices_text: Annotated[List[str], operator.add]
     add_sqlite_DB: bool
-    bank_info: List[str]
+    bank_info: List[dict]
     llm_msg: str
     #api_operation: list[AnyMessage]
     api_operation: str

@@ -21,6 +21,8 @@ import models.base
 import models.payment_methods
 import models.download_methods
 import models.keywords
+import models.payment_info
+import models.group
 
 
 
@@ -105,6 +107,8 @@ def create_database():
   PaymentMethods = models.payment_methods.PaymentMethods
   DownloadMethods = models.download_methods.DownloadMethods
   Keywords = models.keywords.Keywords
+  PaymentInfo = models.payment_info.PaymentInfo
+  Group = models.group.Group
   
   # Adding Default values
   filename = '/app/data/initial_keywords.csv' 
@@ -115,13 +119,41 @@ def create_database():
   # Inserting the payment methods and download methods to its respective tables
   payment = []
   download = []
+  group = []
   for row in data:
       payment.append(row['payment']) 
       download.append(row['download_method']) 
+      group.append(row['group'])
 
   # Making the values unique
   payment = set(payment)
   download = set(download)
+  group = set(group)
+
+  # Insert Groups
+  all_group= session.query(Group).all()
+  if len(all_group) > 0:
+     for name in group:
+        # Query data using 'like' and 'where'
+        search_term = f"{name}%"  # Search for names
+        id = session.query(Group).filter(Group.name.like(search_term)).first() 
+        # No such method in the db 
+        if id is None:
+            # Create a new group object
+            gr = Group(name=name)
+            # Add the new group to the session
+            session.add(gr)
+            # Commit the changes to the database
+            session.commit()       
+  else:
+      for name in group:
+        # Create a new group object
+        gr = Group(name=name)
+        # Add the new group to the session
+        session.add(gr)
+        # Commit the changes to the database
+        session.commit() 
+
 
   # Inserting payment methods to its table if the value is not present in the db.
   p_methods = session.query(PaymentMethods).all()
@@ -173,6 +205,11 @@ def create_database():
 
   # Insert keywords if they are not in db
   for row in data:
+      # Get the Group id
+      search_term = f"{row['group']}%"  # Search for names
+      group = session.query(Group).filter(Group.name.like(search_term)).first() 
+      group_id = group.id 
+
       # Query data using 'like' and 'where'
       sub_search_term = f"%{row['subject']}%"  # Search for subjects
       sender_search_term = f"%{row['sender']}%"  # Search for sender
@@ -200,12 +237,40 @@ def create_database():
           
 
           # Create a new KW object
-          kw = Keywords(subject=row['subject'], payment_method_id=payment_id,download_method_id=download_id,sender=row['sender'])
+          kw = Keywords(subject=row['subject'],payment_method_id=payment_id,download_method_id=download_id,group_id=group_id,sender=row['sender'])
           # Add the new KW to the session
           session.add(kw)
           # Commit the changes to the database
           session.commit() 
-          session.close()
+  
+  # Add the default payment info
+  # Adding Default values
+  filename = '/app/data/initial_payment_info.csv'
+  with open(filename, 'r') as file:
+    reader = csv.DictReader(file)
+    pi_data = [row for row in reader]
+
+  p_infos = session.query(PaymentInfo).all()
+  if len(p_infos) > 0:
+      for row in pi_data:
+        search_term = f"{row['group']}%"  # Search for names
+        group = session.query(Group).filter(Group.name.like(search_term)).first() 
+        id = session.query(PaymentInfo).filter(PaymentInfo.group_id==group.id).first() 
+        if id is None:
+          pi= PaymentInfo(details=row['payment_details'],type=row['payment_type'], group_id=group.id)
+          session.add(pi)
+          session.commit() 
+  else:
+    for row in pi_data:
+      search_term = f"{row['group']}%"  # Search for names
+      group = session.query(Group).filter(Group.name.like(search_term)).first() 
+      pi= PaymentInfo(details=row['payment_details'],type=row['payment_type'], group_id=group.id)
+      session.add(pi)
+      session.commit() 
+
+  session.close()
+
+      
 
 
 def get_keywords_data_from_db():
@@ -255,13 +320,27 @@ def insert_content(logger, data):
   Session = sessionmaker(bind=models.base.engine)
   session = Session()
   Content = models.content.Content
-  created_datetime = datetime.now(pytz.timezone('Australia/Sydney'))
-  # Create a new content object
-  content = Content(name=data['Biller_name'], date=data['Due_date'], amount=data['Amount'], payment=data['payment_method'], processed=0, created_date=created_datetime)
-  # Add the new content to the session
-  session.add(content)
-  # Commit the changes to the database
-  session.commit() 
-  session.close()
-  logger.info("Data inserted to SQLite")
+  group_id = get_group_from_keyword(session, data['kw_subject'], data['kw_sender'])
+  if group_id:
+    created_datetime = datetime.now(pytz.timezone('Australia/Sydney'))
+    # Create a new content object
+    content = Content(name=data['Biller_name'], date=data['Due_date'], amount=data['Amount'], payment=data['payment_method'], processed=0, group_id=group_id, created_date=created_datetime)
+    # Add the new content to the session
+    session.add(content)
+    # Commit the changes to the database
+    session.commit() 
+    session.close()
+    logger.info("Data inserted to SQLite")
+  else:
+    logger.error("Failed to insert to SQLite due to unable to find the group_id")
      
+def get_group_from_keyword(session, subject, sender):
+  Keywords = models.keywords.Keywords
+  # Query data using 'like' and 'where'
+  sub_search_term = f"%{subject}%"  # Search for subjects
+  sender_search_term = f"%{sender}%"  # Search for sender
+  keyword = session.query(Keywords).filter(and_(Keywords.subject.like(sub_search_term), Keywords.sender.like(sender_search_term))).first() 
+  if keyword:
+    return keyword.group_id
+  else:
+    return None
