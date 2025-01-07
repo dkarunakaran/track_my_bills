@@ -11,6 +11,7 @@ from sqlalchemy import and_
 import time
 from datetime import datetime
 import pytz
+from agent_state import InvoiceAgentState
 
 import sys
 parent_dir = ".."
@@ -247,7 +248,7 @@ def create_database():
   # Adding Default values
   filename = '/app/data/initial_payment_info.csv'
   with open(filename, 'r') as file:
-    reader = csv.DictReader(file)
+    reader = csv.DictReader(file,  delimiter='|')
     pi_data = [row for row in reader]
 
   p_infos = session.query(PaymentInfo).all()
@@ -269,9 +270,6 @@ def create_database():
       session.commit() 
 
   session.close()
-
-      
-
 
 def get_keywords_data_from_db():
   subjects = []
@@ -320,7 +318,7 @@ def insert_content(logger, data):
   Session = sessionmaker(bind=models.base.engine)
   session = Session()
   Content = models.content.Content
-  group_id = get_group_from_keyword(session, data['kw_subject'], data['kw_sender'])
+  group_id = get_group_from_keyword(data['kw_subject'], data['kw_sender'])
   if group_id:
     created_datetime = datetime.now(pytz.timezone('Australia/Sydney'))
     # Create a new content object
@@ -334,7 +332,9 @@ def insert_content(logger, data):
   else:
     logger.error("Failed to insert to SQLite due to unable to find the group_id")
      
-def get_group_from_keyword(session, subject, sender):
+def get_group_from_keyword(subject, sender):
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
   Keywords = models.keywords.Keywords
   # Query data using 'like' and 'where'
   sub_search_term = f"%{subject}%"  # Search for subjects
@@ -344,3 +344,15 @@ def get_group_from_keyword(session, subject, sender):
     return keyword.group_id
   else:
     return None
+
+def get_payment_info(group_id):
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  PaymentInfo = models.payment_info.PaymentInfo
+  paymentInfo = session.query(PaymentInfo).filter(PaymentInfo.group_id == group_id).first() 
+
+  return paymentInfo
+
+   
+   
+   

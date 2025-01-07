@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup
 import time
 from pypdf import PdfReader
 import os
+import json
 import sys
 parent_dir = ".."
 sys.path.append(parent_dir)
@@ -49,21 +50,21 @@ memory = SqliteSaver.from_conn_string(":memory:")
 # Ref 4: https://medium.com/@lorevanoudenhove/how-to-build-ai-agents-with-langgraph-a-step-by-step-guide-5d84d9c7e832
 
 def meaning_of_life(input=""):
-    return 'The meaning of life is 42 if rounded but is actually 42.17658'
+    return 'Update Task API directly'
 
 life_tool = Tool(
-    name='Meaning of Life',
+    name='Update Task API directly',
     func= meaning_of_life,
-    description="Useful for when you need to answer questions about the meaning of life. input should be MOL "
+    description="Useful for when there is no difference in comparison"
 )
 
 def random_num(input=""):
-    return random.randint(0,5)
+    return 'Update SqliteDB first'
 
 random_tool = Tool(
-    name='Random number',
+    name='Update SqliteDB first',
     func= random_num,
-    description="Useful for when you need to get a random number. input should be 'random'"
+    description="Useful for when there is a difference in comparison"
 )
 
 class InvoiceAgent:
@@ -87,12 +88,12 @@ class InvoiceAgent:
         graph.add_edge("drive-invoices", "add-sqlitedb") 
         graph.add_edge("add-sqlitedb", "extract-bank-info") 
         graph.add_edge("extract-bank-info", "llm") 
-        graph.add_conditional_edges(
+        '''graph.add_conditional_edges(
             "llm",
             self.exists_action,
             {True: "take_action", False: END}
         )
-        graph.add_edge("take_action", END)
+        graph.add_edge("take_action", END)'''
         self.graph = graph.compile()
         self.tools = {t.name: t for t in tools}
         self.model = model.bind_tools(tools)
@@ -186,17 +187,27 @@ class InvoiceAgent:
     def extract_bank_info_node(self, state: InvoiceAgentState):
         return_data = []
         try:
+            index = 0
             for data in state['invoices_text']:
-                if data:
-                    result = self.gen_ai_google.generate_content(self.cfg['invoice_agent']['prompt_for_bank_info']+data)
+                if data and state['invoices_dict'][index] is not None:
+                    invoice_data = state['invoices_dict'][index]
+                    self.logger.debug(f"Getting bank details for {invoice_data['kw_subject']} started")
+                    group_id = utility.get_group_from_keyword(invoice_data['kw_subject'], invoice_data['kw_sender'])
+                    paymentInfo = utility.get_payment_info(group_id)
+                    payment_info_prompt= f" Only give {paymentInfo.type} type and no other payment details needed."
+                    
+                    # Query the LLM to extract the bank info
+                    result = self.gen_ai_google.generate_content(self.cfg['invoice_agent']['prompt_for_bank_info']+data+payment_info_prompt)
                     self.logger.debug(f"Data from Google AI Studio: {result}")
                     json_data = get_JSON(result, logger=self.logger)
                     if json_data:
+                        json_data['group_id'] = group_id
                         return_data.append(json_data)
                     else:
                         return_data.append(None)
                 else:
                     return_data.append(None)
+                index += 1
 
         except Exception as err:
                 self.logger.error(f"Unexpected {err=}, {type(err)=} at extract_bank_info_node")
@@ -206,10 +217,24 @@ class InvoiceAgent:
     
     def call_llm_node(self, state: InvoiceAgentState):
         # Compare the data to decide which tool to use
-        messages = [SystemMessage(content=self.cfg['invoice_agent']['prompt_for_API_tools']),"What is the meaning of life?"]
-        message = self.model.invoke(messages)
-        
-        return {'llm_msg': message}
+        proceed = False
+        for info in state['bank_info']:
+            if info:
+                existingPaymentInfo = utility.get_payment_info(info['group_id'])
+                existing = json.loads(existingPaymentInfo.details)
+                existing['type'] = existingPaymentInfo.type
+                existing['group_id'] = existingPaymentInfo.group_id
+                #existing = json.dump(existing)
+                newPI = info
+                #newPI = json.dump(info)
+                proceed = True
+        if proceed:
+            messages = [SystemMessage(content=self.cfg['invoice_agent']['prompt_for_API_tools']),f"existing data:{existing} and new data: {newPI}"]
+            message = self.model.invoke(messages)
+            return {'llm_msg': message}
+        else:
+            return {'llm_msg': ''}
+
 
     def exists_action(self, state: InvoiceAgentState):
         result = state['llm_msg']

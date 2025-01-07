@@ -1,2 +1,3 @@
-group,payment_details,payment_type
-Maria Daycare,"{'bsb': '062 692', 'account_number': '7747 4593'}",bank account
+group|payment_details|payment_type
+Maria Daycare|{"bsb": "062 692", "account_number": "7747 4593"}|bank account
+Energy Locals|{"biller_code": "197954", "reference_number": "77090066069"}|BPay
