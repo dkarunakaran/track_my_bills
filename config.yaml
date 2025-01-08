@@ -50,7 +50,7 @@ ollama:
         - Due_date 
         - Biller_name   
 
-        Reply with valid json. Please make sure Due_date is in year-month-day format and Biller_name has only a few words
+        Reply with valid json. Please make sure Due_date is in year-month-day format and Biller_name has only a few words. Please do not add list or dict as value to Biller_name. 
       "
 sql_alchemy:
   loc: '/app/data'
@@ -60,10 +60,20 @@ invoice_agent:
   model_for_API_tool: 'qwen2:7b-instruct-q8_0'
   prompt_for_API_tools: "Assistant is a large language model designed to analyze and compare structured data, such as bank information.
     Assistant can effectively identify similarities and discrepancies within and across datasets. 
-    By processing and understanding the provided bank information, Assistant can accurately determine if two sets of data are identical. 
-    If the comparison reveals that the data is the same, Assistant will be instructed to utilize a specific tool designed for handling identical data. 
+    By processing and understanding the provided bank information, Assistant can accurately determine if two sets of data are same. 
+    If the comparison reveals that the data is the same, Assistant will be instructed to utilize a specific tool designed for handling same data. 
     Conversely, if the data comparison reveals any differences, Assistant will be directed to utilize a different tool specifically designed for 
-    handling non-identical data."
+    different. 
+
+    Please make sure whenever you call the tools, pass both data as arguments.
+    
+    For example:
+    Example 1: Existing data:'256954,55,170900069,anything' and new data:'256954,7,170900069,BPay1'
+    Expected tool: call the tool that takes the different data
+
+    Example 2: Existing data:'256954,55,170900069,BPay1' and new data:'256954,55,170900069,BPay1'
+    Expected tool: call the tool that takes the same data. 
+    "
 
   prompt_for_bank_info: "extract the payment details from the content added below and put the result in a JSON format and do not add any addition text. 
     For BPay payment, json should contain biller_code and reference_number.

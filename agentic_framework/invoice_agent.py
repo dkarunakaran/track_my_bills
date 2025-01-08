@@ -223,15 +223,21 @@ class InvoiceAgent:
             if info:
                 existingPaymentInfo = utility.get_payment_info(info['group_id'])
                 existing = json.loads(existingPaymentInfo.details)
-                existing['type'] = "something" #existingPaymentInfo.type
+                existing['type'] = existingPaymentInfo.type
                 existing['group_id'] = existingPaymentInfo.group_id
                 existing = sorted(existing.items())
+                # Extract only the values from the tuples
+                values = [str(item[1]) for item in existing]
+                existing = ','.join(values)
                 newPI = sorted(info.items())
+                # Extract only the values from the tuples
+                values = [str(item[1]) for item in newPI]
+                newPI = ','.join(values)
                 proceed = True
             if proceed:
-                custom_msg = f"Existing data:{existing} and new data: {newPI}. Make sure all the keys and values are same on existing and new data."
+                custom_msg = f"Existing data:'{existing}' and new data:'{newPI}'"
                 self.logger.debug(f"Tool selection msg: {custom_msg}")
-                messages = [SystemMessage(content=self.cfg['invoice_agent']['prompt_for_API_tools']),custom_msg]
+                messages = [SystemMessage(content=self.cfg['invoice_agent']['prompt_for_API_tools']),HumanMessage(content=custom_msg)]
                 message = self.model.invoke(messages)
                 llm_messages.append(message)
         
