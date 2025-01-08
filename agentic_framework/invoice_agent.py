@@ -23,7 +23,7 @@ parent_dir = ".."
 sys.path.append(parent_dir)
 import utility
 import google_ai_studio_services
-
+from agent_tools import add_task_api_directly, update_sqlitedb_then_task_api
 
 
 memory = SqliteSaver.from_conn_string(":memory:")
@@ -50,21 +50,21 @@ memory = SqliteSaver.from_conn_string(":memory:")
 # Ref 4: https://medium.com/@lorevanoudenhove/how-to-build-ai-agents-with-langgraph-a-step-by-step-guide-5d84d9c7e832
 
 def meaning_of_life(input=""):
-    return 'Update Task API directly'
+    return 'Update Task API directly '
 
 life_tool = Tool(
-    name='Update Task API directly',
+    name='Update Task API directly on identical data',
     func= meaning_of_life,
-    description="Useful for when there is no difference in comparison"
+    description="Useful for when both data are identical and we just need to update only the Task API directly"
 )
 
 def random_num(input=""):
     return 'Update SqliteDB first'
 
 random_tool = Tool(
-    name='Update SqliteDB first',
+    name='Update SqliteDB first on non-identical data',
     func= random_num,
-    description="Useful for when there is a difference in comparison"
+    description="Useful for when both data are non-identical and we just need to update the SqliteDB and Task API directly"
 )
 
 class InvoiceAgent:
@@ -217,23 +217,25 @@ class InvoiceAgent:
     
     def call_llm_node(self, state: InvoiceAgentState):
         # Compare the data to decide which tool to use
-        proceed = False
+        llm_messages= []
         for info in state['bank_info']:
+            proceed = False
             if info:
                 existingPaymentInfo = utility.get_payment_info(info['group_id'])
                 existing = json.loads(existingPaymentInfo.details)
-                existing['type'] = existingPaymentInfo.type
+                existing['type'] = "something" #existingPaymentInfo.type
                 existing['group_id'] = existingPaymentInfo.group_id
-                #existing = json.dump(existing)
-                newPI = info
-                #newPI = json.dump(info)
+                existing = sorted(existing.items())
+                newPI = sorted(info.items())
                 proceed = True
-        if proceed:
-            messages = [SystemMessage(content=self.cfg['invoice_agent']['prompt_for_API_tools']),f"existing data:{existing} and new data: {newPI}"]
-            message = self.model.invoke(messages)
-            return {'llm_msg': message}
-        else:
-            return {'llm_msg': ''}
+            if proceed:
+                custom_msg = f"Existing data:{existing} and new data: {newPI}. Make sure all the keys and values are same on existing and new data."
+                self.logger.debug(f"Tool selection msg: {custom_msg}")
+                messages = [SystemMessage(content=self.cfg['invoice_agent']['prompt_for_API_tools']),custom_msg]
+                message = self.model.invoke(messages)
+                llm_messages.append(message)
+        
+        return {'llm_msg': llm_messages}
 
 
     def exists_action(self, state: InvoiceAgentState):
@@ -257,7 +259,7 @@ class InvoiceAgent:
         return {'api_operation': results}
 
 if __name__ == "__main__":
-    tools = [random_tool, life_tool]
+    tools = [add_task_api_directly, update_sqlitedb_then_task_api]
     initial_state = InvoiceAgentState()
     initial_state['invoices_dict'] = [None]
     initial_state['invoices_text'] = [None]

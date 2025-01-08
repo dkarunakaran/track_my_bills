@@ -9,6 +9,6 @@ class InvoiceAgentState(TypedDict):
     invoices_text: Annotated[List[str], operator.add]
     add_sqlite_DB: bool
     bank_info: List[dict]
-    llm_msg: str
+    llm_msg: Annotated[List[str], operator.add]
     #api_operation: list[AnyMessage]
     api_operation: str

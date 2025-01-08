@@ -1,27 +1,15 @@
 # Import things that are needed generically
 from langchain.tools import tool
-from typing import List
-import yaml
-
-import sys
-sys.path.append("/app")
-from download import Download
-
 
 @tool
-def invoice_email() -> List[str]:
-    """"Useful for when you need to get invoices from email"""
-    
-    download = Download()
+def add_task_api_directly(input=""):
+    """"Useful for when both data are identical and we just need to update only the Task API directly"""
 
-    # Read and process emails
-    #download.get_emails()
-    
+    return 'Add Task API directly '
 
-    return ["LangChain"]
+@tool
+def update_sqlitedb_then_task_api(input=""):
+    """"Useful for when both data are non-identical and we just need to update the SqliteDB and then update Task API"""
     
-
-if __name__ == '__main__':
-    print(invoice_email.name)
-    print(invoice_email.description)
-    print(invoice_email.args)
+    return 'Update SqliteDB first, then Task API'
+    
