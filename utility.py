@@ -11,7 +11,7 @@ from sqlalchemy import and_
 import time
 from datetime import datetime
 import pytz
-from agent_state import InvoiceAgentState
+from agentic_framework.agent_state import InvoiceAgentState, BankInfoDict
 
 import sys
 parent_dir = ".."
@@ -340,6 +340,7 @@ def get_group_from_keyword(subject, sender):
   sub_search_term = f"%{subject}%"  # Search for subjects
   sender_search_term = f"%{sender}%"  # Search for sender
   keyword = session.query(Keywords).filter(and_(Keywords.subject.like(sub_search_term), Keywords.sender.like(sender_search_term))).first() 
+  session.close()
   if keyword:
     return keyword.group_id
   else:
@@ -350,9 +351,87 @@ def get_payment_info(group_id):
   session = Session()
   PaymentInfo = models.payment_info.PaymentInfo
   paymentInfo = session.query(PaymentInfo).filter(PaymentInfo.group_id == group_id).first() 
+  session.close()
 
   return paymentInfo
 
+def update_payment_info(BankInfoDict):
+  try:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+    PaymentInfo = models.payment_info.PaymentInfo
+    result = session.query(PaymentInfo).filter(and_(PaymentInfo.group_id == BankInfoDict['group_id'], PaymentInfo.type == BankInfoDict['type'])).update({"details":BankInfoDict['details'], 'group_id': BankInfoDict['group_id'], 'type': BankInfoDict['type']})
+    session.commit()    
+    session.close()
+  except Exception as err:
+    print(f"Unexpected {err=}, {type(err)=}")
+    result = None
+      
+  return result
+
+def get_all_contents():
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+    Content = models.content.Content
+    contents = session.query(Content).filter(Content.processed == 0).all() 
+
+    return contents
+
+def delete_content(id):
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+    Content = models.content.Content
+    # Retrieve single record
+    content = session.query(Content).filter(Content.id==1).first()
+    # Perform Delete Action
+    session.delete(content)
+    # Commit changes
+    session.commit()
    
-   
+def update_content(id):
+  try:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+    Content = models.content.Content
+    result = session.query(Content).filter(Content.id == id).update({"processed": 1})
+    session.commit()
+    session.close()
+  except Exception as err:
+    print(f"Unexpected {err=}, {type(err)=}")
+    result = None
+  
+  return result
+
+
+def get_all_contents_unfiltered():
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  Content = models.content.Content
+  contents = session.query(Content).all() 
+
+  return contents
+
+def get_all_payment_methods():
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  PaymentMethods = models.payment_methods.PaymentMethods
+  pms = session.query(PaymentMethods).all() 
+
+  return pms
+
+def get_all_download_methods():
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  DownloadMethods = models.download_methods.DownloadMethods
+  dms = session.query(DownloadMethods).all() 
+
+  return dms
+
+def get_all_groups():
+  Session = sessionmaker(bind=models.base.engine)
+  session = Session()
+  Group = models.group.Group
+  groups = session.query(Group).all() 
+
+  return groups
    

@@ -26,15 +26,15 @@
             </tr>
         </thead>
         <tbody>
-          {%for id, name, date, amount, payment, processed, paid, created_date in contents%}
+          {%for content in contents%}
           <tr>
-            <td> <p class="fs-6">{{id}}</p> </td>
-            <td> <p class="fs-6">{{name}}</p> </td>
-            <td> <p class="fs-6">{{date}}</p> </td>
-            <td> <p class="fs-6">{{amount}}</p> </td>
-            <td> <p class="fs-6">{{payment}}</p> </td>
+            <td> <p class="fs-6">{{content.id}}</p> </td>
+            <td> <p class="fs-6">{{content.name}}</p> </td>
+            <td> <p class="fs-6">{{content.date}}</p> </td>
+            <td> <p class="fs-6">{{content.amount}}</p> </td>
+            <td> <p class="fs-6">{{content.payment}}</p> </td>
             <td><p class="fs-6">
-              {% if paid %}
+              {% if content.paid %}
                 True
               {% else %}
                 False
@@ -42,7 +42,7 @@
               </p>
             </td>
             <td><p class="fs-6">
-              {% if processed %}
+              {% if content.processed %}
                 True
               {% else %}
                 False
@@ -161,7 +161,7 @@
   </div>
 </div>
 
-<!-- Add New Entry Modal -->
+<!-- Add New Entry Modal - Keywords -->
 <div class="modal fade" id="addNewItemModal" tabindex="-1" aria-labelledby="addNewItemModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -176,20 +176,29 @@
             <input type="text" class="form-control" name="subject" id="subject">
           </div>
           <div class="mb-3">
-            <label class="form-label">Payment Methods</label>
+            <label class="form-label">Payment Method</label>
             <select name="payment_methods" class="form-select">
               <option value="-1" selected>Open this select menu</option>
-              {%for id, name in payment_methods%}
-                <option value="{{id}}">{{name}}</option>
+              {%for pm in payment_methods%}
+                <option value="{{pm.id}}">{{pm.name}}</option>
               {%endfor%}
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Download Methods</label>
+            <label class="form-label">Download Method</label>
             <select name="download_methods" class="form-select">
               <option value="-1" selected>Open this select menu</option>
-              {%for id, name in download_methods%}
-                <option value="{{id}}">{{name}}</option>
+              {%for dm in download_methods%}
+                <option value="{{dm.id}}">{{dm.name}}</option>
+              {%endfor%}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Group</label>
+            <select name="groups" class="form-select">
+              <option value="-1" selected>Open this select menu</option>
+              {%for grp in groups%}
+                <option value="{{grp.id}}">{{grp.name}}</option>
               {%endfor%}
             </select>
           </div>

@@ -8,7 +8,8 @@ import time
 from main import run
 import yaml
 import csv
-from utility import create_database
+import utility
+from agentic_framework.invoice_agent import InvoiceAgent
 
 
 app = Flask(__name__)
@@ -16,20 +17,15 @@ app = Flask(__name__)
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
-create_database()
+utility.create_database()
 
 @app.route('/')
-def index():
-    conn = sqlite3.connect('data/data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM Content') 
-    contents = cursor.fetchall()
-    cursor.execute("SELECT * FROM Payment_methods")
-    payment_methods = cursor.fetchall()
-    cursor.execute("SELECT * FROM Download_methods")
-    download_methods = cursor.fetchall()
-    conn.close()
-    return render_template("index.html", contents=contents,payment_methods=payment_methods,download_methods=download_methods)
+def index():  
+    contents = utility.get_all_contents_unfiltered()
+    payment_methods = utility.get_all_payment_methods()
+    download_methods = utility.get_all_download_methods()
+    groups = utility.get_all_groups()
+    return render_template("index.html", contents=contents,payment_methods=payment_methods,download_methods=download_methods,groups=groups)
 
 @app.route('/query_invoices', methods=['POST'])
 def query_invoices():

@@ -196,5 +196,67 @@ def ollama_query(text):
 
     return chain.invoke({"context": text})
 
+def task_API_operation(logger, task_service):
+    try:
+        _return = None
+        contents = utility.get_all_contents()
+        logger.debug(f"Contents from SQLite: {contents}")
+        if len(contents) > 0:
+            tasklist_id = get_tasklist_id('Payment', task_service)
+            try:
+                if tasklist_id is not None:
+                    for content in contents:
+                        task_id = get_task_id(logger, task_service, tasklist_id=tasklist_id, task_name=content.name)
+                        logger.debug(f"Task_id: {task_id}")
+                        date_str = content.date
+                        date_format = '%Y-%m-%d'
+                        date_obj = datetime.strptime(date_str, date_format).astimezone()
+                        logger.debug(f"Date object: {date_obj.isoformat()}")
+                        notes = f"Amount: {content.amount}\nPayment: {content.payment}"
+                        taskdata = { 'title': content.name, 'due': date_obj.isoformat(),'notes': notes}
+                        if task_id is None:
+                            logger.info(f"TASK API insert operation of '{content.name}' started")
+                            result = task_service.tasks().insert(tasklist=tasklist_id, body=taskdata).execute()
+                        else:
+                            logger.info(f"TASK API update operation '{content.name}' started")
+                            result = task_service.tasks().patch(tasklist=tasklist_id, task=task_id, body=taskdata).execute()
+                        logger.debug(result)
+                        # Insted delete, do the update operation
+                        #self.delete_content(id=content[0])
+                        _return = utility.update_content(id=content.id)
+                logger.info("All Tasks are created/updated")
+            except Exception as err:
+                logger.error(f"Unexpected {err=}, {type(err)=} at task_API_operation - first")
+        else:
+            logger.info("No task data found in SQLite at task_API_operation - second")
+    except HttpError as error:
+        logger.critical(f"An error occurred: {error} - at task_API_operation - third")
+    
+    return _return
+
+def get_tasklist_id(keyword, task_service):
+        # List all the tasklists for the account.
+    id = None
+    lists = task_service.tasklists().list().execute()
+    for item in lists['items']:
+        if item['title'] == keyword:
+            id = item['id']
+            break
+
+    return id
+
+def get_task_id(logger, task_service, tasklist_id=None, task_name=None):
+    id = None
+    results = task_service.tasks().list(tasklist=tasklist_id).execute()
+    tasks = results.get('items', [])
+    logger.debug(f"All tasks: {tasks}")
+    for task in tasks:
+        if task['title'] == task_name:
+            id = task['id']
+            break
+        
+    return id
+
+
 
 

@@ -9,7 +9,7 @@ from langchain.agents import Tool
 from langchain.tools import BaseTool
 import random
 from agent_state import InvoiceAgentState
-from agent_node_helper import process_email_checker, llm_query, get_the_text_data_email, get_JSON
+from agent_node_helper import process_email_checker, llm_query, get_the_text_data_email, get_JSON, task_API_operation
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import base64
@@ -82,18 +82,20 @@ class InvoiceAgent:
         graph.add_node("add-sqlitedb", self.add_to_sqlite_db_node)
         graph.add_node("extract-bank-info", self.extract_bank_info_node)
         graph.add_node("llm", self.call_llm_node)
-        graph.add_node("take_action", self.take_action_node)
+        graph.add_node("take_action_node", self.take_action_node)
+        graph.add_node("update_task_api_node", self.update_task_api_node)
         graph.set_entry_point("email-invoices")
         graph.add_edge("email-invoices", "drive-invoices") 
         graph.add_edge("drive-invoices", "add-sqlitedb") 
         graph.add_edge("add-sqlitedb", "extract-bank-info") 
         graph.add_edge("extract-bank-info", "llm") 
-        '''graph.add_conditional_edges(
+        graph.add_conditional_edges(
             "llm",
             self.exists_action,
-            {True: "take_action", False: END}
+            {True: "take_action_node", False: "update_task_api_node"}
         )
-        graph.add_edge("take_action", END)'''
+        graph.add_edge("take_action_node", "update_task_api_node")
+        graph.add_edge("update_task_api_node", END)
         self.graph = graph.compile()
         self.tools = {t.name: t for t in tools}
         self.model = model.bind_tools(tools)
@@ -108,8 +110,10 @@ class InvoiceAgent:
         # Define GMAIL API service
         if type == 'GMAIL':
             return build("gmail", "v1", credentials=creds)
-        else:
+        elif type == 'DRIVE':
             return build('drive', 'v3', credentials=creds)
+        else:
+            return build("tasks", "v1", credentials=creds)
         
 
     def get_email_invoice_node(self, state: InvoiceAgentState):
@@ -240,29 +244,52 @@ class InvoiceAgent:
                 messages = [SystemMessage(content=self.cfg['invoice_agent']['prompt_for_API_tools']),HumanMessage(content=custom_msg)]
                 message = self.model.invoke(messages)
                 llm_messages.append(message)
+                #print(message)
         
         return {'llm_msg': llm_messages}
 
 
     def exists_action(self, state: InvoiceAgentState):
         result = state['llm_msg']
-        return len(result.tool_calls) > 0
+        tools_exist = False
+        for item in result:
+            if item.tool_calls:
+                tools_exist = True
+
+        return tools_exist
     
     def take_action_node(self, state: InvoiceAgentState):
-        tool_calls = state['llm_msg'].tool_calls
         results = []
-    
-        for t in tool_calls:
-            print(f"Calling: {t}")
-            if not t['name'] in self.tools:      # check for bad tool name from LLM
-                print("\n ....bad tool name....")
-                result = "bad tool name, retry"  # instruct LLM to retry if bad
-            else:
-                result = self.tools[t['name']].invoke(t['args'])
-            results.append(ToolMessage(tool_call_id=t['id'], name=t['name'], content=str(result)))
+        for msg in state['llm_msg']:
+            tool_calls = msg.tool_calls
+            for t in tool_calls:
+                print(f"Calling: {t}")
+                if not t['name'] in self.tools:      # check for bad tool name from LLM
+                    print("\n ....bad tool name....")
+                    result = "bad tool name, retry"  # instruct LLM to retry if bad
+                else:
+                    result = self.tools[t['name']].invoke(t['args'])
+                results.append(ToolMessage(tool_call_id=t['id'], name=t['name'], content=str(result)))
         print("Back to the model!")
     
-        return {'api_operation': results}
+        return {'tools': results}
+    
+    def update_task_api_node(self, state: InvoiceAgentState):
+        _return = None
+        # Authenticate with GOOGLE API
+        creds = utility.authenticate(self.cfg)
+        # Define TASK API service
+        task_service = self.google_api_authentication(type='TASK')
+        # Calling the TASK API
+        result = task_API_operation(self.logger, task_service)
+        if result:
+            _return = "Task API operation is successfull."
+        else:
+            _return = "Task API operation failed."
+
+        return {'task_api': _return}
+
+
 
 if __name__ == "__main__":
     tools = [add_task_api_directly, update_sqlitedb_then_task_api]
