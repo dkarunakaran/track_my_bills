@@ -1,36 +1,46 @@
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 import os
-import sqlite3
-from collections import defaultdict
-from sqlitedb import SqliteDB
 import time
 from main import run
 import yaml
-import csv
 import utility
-from agentic_framework.invoice_agent import InvoiceAgent
+from sqlalchemy.orm import sessionmaker
+
+import sys
+parent_dir = ".."
+sys.path.append(parent_dir)
+import models.base
 
 
 app = Flask(__name__)
-#sql_db = SqliteDB()
+
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
 utility.create_database()
 
+Session = sessionmaker(bind=models.base.engine)
+session = Session()
+
 @app.route('/')
 def index():  
-    contents = utility.get_all_contents_unfiltered()
-    payment_methods = utility.get_all_payment_methods()
-    download_methods = utility.get_all_download_methods()
-    groups = utility.get_all_groups()
+    try:
+        contents = utility.get_all_contents_unfiltered()
+        payment_methods = utility.get_all_payment_methods()
+        download_methods = utility.get_all_download_methods()
+        groups = utility.get_all_groups()
+    except:
+        contents = []
+        payment_methods = []
+        download_methods = []
+        groups = []
     return render_template("index.html", contents=contents,payment_methods=payment_methods,download_methods=download_methods,groups=groups)
 
 @app.route('/query_invoices', methods=['POST'])
 def query_invoices():
     try:
-        run()
+        run(session)
         return jsonify({'message': 'Invoices processed'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -40,34 +50,15 @@ def add_new_keyword_entry():
     if request.method == 'POST':
         try:
             # Get form data
-            subject = request.form.get('subject')
-            payment_method = request.form.get('payment_methods')
-            download_method = request.form.get('download_methods')
-            sender = request.form.get('sender')
+            form_data = {
+                'subject': request.form.get('subject'),
+                'payment_method': request.form.get('payment_methods'),
+                'download_method': request.form.get('download_methods'),
+                'group': request.form.get('groups'),
+                'sender': request.form.get('sender')
+            }
             time.sleep(3)
-            conn = sqlite3.connect('data/data.db')
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT id FROM Keywords where subject LIKE '%{subject}%' and sender LIKE '%{sender}%'") 
-            keyword_id = cursor.fetchone()
-
-            # No such keywords in the db 
-            if keyword_id is None:
-                
-                # Get the payment_id
-                query = f"SELECT payment_method_id FROM Payment_methods where payment_method_id={payment_method}"
-                cursor.execute(query)
-                payment_id = cursor.fetchone()[0]
-
-                # Get the download_id
-                query = f"SELECT download_method_id FROM Download_methods where download_method_id={download_method}"
-                cursor.execute(query)
-                download_id = cursor.fetchone()[0]
-
-                cursor.execute("""INSERT INTO Keywords (subject, payment_method_id, download_method_id, sender) VALUES (?, ?, ?, ?)""", [subject, payment_id, download_id, sender])
-                conn.commit()  
-                message = 'Form submitted successfully!'
-            else:
-                message = 'Data exists already'
+            message = utility.insert_keyword_api({form_data}, session=session)
 
             return jsonify({'message': message}), 200
         except Exception as e:
@@ -79,19 +70,7 @@ def add_new_download_entry():
             # Get form data
             download = request.form.get('download')
             time.sleep(3)
-            conn = sqlite3.connect('data/data.db')
-            cursor = conn.cursor()
-            query = f"SELECT download_method_id FROM Download_methods where name LIKE '%{download}%'"
-            cursor.execute(query)
-            id = cursor.fetchone()
-            # No such method in the db 
-            if id is None:
-                cursor.execute("""INSERT INTO Download_methods (name) VALUES (?)""", [download])
-                conn.commit()        
-                message = 'Form submitted successfully!'
-            else:
-                message = 'Data exists already'
-
+            message = utility.insert_download_methods_api(download, session=session)
             return jsonify({'message': message}), 200
         except Exception as e:
             return jsonify({'error': str(e)}), 500
@@ -103,19 +82,60 @@ def add_new_payment_entry():
             # Get form data
             payment = request.form.get('payment')
             time.sleep(3)
-            conn = sqlite3.connect('data/data.db')
-            cursor = conn.cursor()
-            query = f"SELECT payment_method_id FROM Payment_methods where name LIKE '%{payment}%'"
-            cursor.execute(query)
-            id = cursor.fetchone()
-            # No such method in the db 
-            if id is None:
-                cursor.execute("""INSERT INTO Payment_methods (name) VALUES (?)""", [payment])
-                conn.commit()        
-                message = 'Form submitted successfully!'
-            else:
-                message = 'Data exists already'
+            message = utility.insert_payment_methods_api(payment, session=session)
+    
+            return jsonify({'message': message}), 200
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+@app.route('/delete_content', methods=['DELETE'])
+def delete_content_update():
+    if request.method == 'DELETE':
+        try:
+            # Get form data
+            content_id = request.form.get('delete_content')
+            time.sleep(3)
+            utility.delete_content(content_id, session=session)
+    
+            return jsonify({'message': f"Deleted the content: {content_id}"}), 200
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
+@app.route('/add_new_group_entry', methods=['POST'])
+def add_new_group_entry():
+    if request.method == 'POST':
+        try:
+            # Get form data
+            group = request.form.get('group')
+            time.sleep(3)
+            message = utility.insert_group_api(group, session=session)
+
+            return jsonify({'message': message}), 200
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+@app.route('/add_new_name_under_group', methods=['POST'])
+def add_new_name_under_group_entry():
+    if request.method == 'POST':
+        try:
+            # Get form data
+            new_name =  request.form.get('new_name')
+            group_id = request.form.get('group')
+            time.sleep(3)
+            message = utility.insert_new_name_api(new_name, group_id, session=session)
+
+            return jsonify({'message': message}), 200
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+@app.route('/submit_as_paid', methods=['POST'])
+def submit_as_paid_entry():
+    if request.method == 'POST':
+        try:
+            # Get form data
+            content_id =  request.form.get('content_id')
+            time.sleep(3)
+            message = utility.submit_as_paid(content_id, session=session)
             return jsonify({'message': message}), 200
         except Exception as e:
             return jsonify({'error': str(e)}), 500
@@ -123,4 +143,4 @@ def add_new_payment_entry():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 7000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=False, host='0.0.0.0', port=port)

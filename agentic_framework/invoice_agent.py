@@ -1,77 +1,30 @@
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated, List
-import operator
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_ollama import ChatOllama
 import yaml
-from langchain.agents import Tool
-from langchain.tools import BaseTool
-import random
-from agent_state import InvoiceAgentState
-from agent_node_helper import process_email_checker, llm_query, get_the_text_data_email, get_JSON, task_API_operation
+from agentic_framework.agent_state import InvoiceAgentState
+from agentic_framework.agent_node_helper import process_email_checker, llm_query, get_the_text_data_email, get_JSON, task_API_operation
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-import base64
-from bs4 import BeautifulSoup
-import time
-from pypdf import PdfReader
-import os
 import json
 import sys
 parent_dir = ".."
 sys.path.append(parent_dir)
 import utility
 import google_ai_studio_services
-from agent_tools import add_task_api_directly, update_sqlitedb_then_task_api
-
-
-memory = SqliteSaver.from_conn_string(":memory:")
-# download = Download()
-# generate = Generate()
-# Read and process emails - node 1
-# download.get_emails()
-
-# Read and check bank details. This is to make sure the bank details has not been changed - node 2
-# If there is any change to bank details, wait for the human to proceed to update the bank details, otherwise continute to node 3
-
-# Read and process drive files - node 3
-# download.get_drive_files()
-
-# Read and check bank details. This is to make sure the bank details has not been changed - node 4
-# If there is any change to bank details, wait for the human to proceed to update the bank details, otherwise continute to node 5
-
-# Create the Task based on the processed data - node 5
-# generate.task_API_operation()
+from agentic_framework.agent_tools import add_task_api_directly, update_sqlitedb_then_task_api
 
 # Ref 1: https://www.analyticsvidhya.com/blog/2024/10/setting-up-custom-tools-and-agents-in-langchain/
 # Ref 2: https://learn.deeplearning.ai/courses/ai-agents-in-langgraph/lesson/3/langgraph-components
 # Ref 3: https://learn.deeplearning.ai/courses/ai-agents-in-langgraph/lesson/7/essay-writer
 # Ref 4: https://medium.com/@lorevanoudenhove/how-to-build-ai-agents-with-langgraph-a-step-by-step-guide-5d84d9c7e832
 
-def meaning_of_life(input=""):
-    return 'Update Task API directly '
-
-life_tool = Tool(
-    name='Update Task API directly on identical data',
-    func= meaning_of_life,
-    description="Useful for when both data are identical and we just need to update only the Task API directly"
-)
-
-def random_num(input=""):
-    return 'Update SqliteDB first'
-
-random_tool = Tool(
-    name='Update SqliteDB first on non-identical data',
-    func= random_num,
-    description="Useful for when both data are non-identical and we just need to update the SqliteDB and Task API directly"
-)
-
 class InvoiceAgent:
-    def __init__(self, tools, system=""):
+    def __init__(self, tools, checkpointer, session=None, system=""):
         # Creating databse if not existed
         utility.create_database()
         self.logger = utility.logger_helper()
+        self.session = session
         with open("/app/config.yaml") as f:
             self.cfg = yaml.load(f, Loader=yaml.FullLoader)
         model = ChatOllama(model=self.cfg['invoice_agent']['model_for_API_tool'], base_url=self.cfg['invoice_agent']['host'])
@@ -96,7 +49,10 @@ class InvoiceAgent:
         )
         graph.add_edge("take_action_node", "update_task_api_node")
         graph.add_edge("update_task_api_node", END)
-        self.graph = graph.compile()
+        if checkpointer:
+            self.graph = graph.compile(checkpointer=checkpointer)
+        else:
+            self.graph = graph.compile()
         self.tools = {t.name: t for t in tools}
         self.model = model.bind_tools(tools)
         self.gen_ai_google = google_ai_studio_services.GoogleAIStudioServices()
@@ -114,7 +70,6 @@ class InvoiceAgent:
             return build('drive', 'v3', credentials=creds)
         else:
             return build("tasks", "v1", credentials=creds)
-        
 
     def get_email_invoice_node(self, state: InvoiceAgentState):
         return_dict = []
@@ -122,7 +77,7 @@ class InvoiceAgent:
         text_data = None
         dict_data = None
         self.logger.info("Reading the email using GMAIL API")
-        subjects, payment_methods, download_methods, senders = utility.get_keywords_data_from_db()
+        subjects, payment_methods, download_methods, senders = utility.get_keywords_data_from_db(self.session)
         # Authenticate with GOOGLE API
         creds = utility.authenticate(self.cfg)
         # Define GMAIL API service
@@ -152,7 +107,10 @@ class InvoiceAgent:
                         find_payment_method = True
 
                     biller_name, due_date, amount, payment_method = llm_query(self.logger, subjects, payment_methods, text_data, payment_method, find_payment_method)
-
+                    group_name = utility.get_group_name(biller_name, session=self.session)
+                    if group_name:
+                        biller_name = group_name
+                    
                     dict_data = {
                         'Biller_name': biller_name,
                         'Due_date': due_date,
@@ -167,8 +125,7 @@ class InvoiceAgent:
             except Exception as err:
                 self.logger.error(f"Unexpected {err=}, {type(err)=} at get_email_invoice_node")
                 return_dict.append(dict_data)
-                return_text.append(text_data)
-                
+                return_text.append(text_data)     
         
         return {'invoices_dict': return_dict, 'invoices_text':return_text}
 
@@ -248,7 +205,6 @@ class InvoiceAgent:
         
         return {'llm_msg': llm_messages}
 
-
     def exists_action(self, state: InvoiceAgentState):
         result = state['llm_msg']
         tools_exist = False
@@ -281,7 +237,7 @@ class InvoiceAgent:
         # Define TASK API service
         task_service = self.google_api_authentication(type='TASK')
         # Calling the TASK API
-        result = task_API_operation(self.logger, task_service)
+        result = task_API_operation(self.logger, task_service, session=self.session)
         if result:
             _return = "Task API operation is successfull."
         else:
@@ -289,14 +245,13 @@ class InvoiceAgent:
 
         return {'task_api': _return}
 
-
-
 if __name__ == "__main__":
     tools = [add_task_api_directly, update_sqlitedb_then_task_api]
     initial_state = InvoiceAgentState()
     initial_state['invoices_dict'] = [None]
     initial_state['invoices_text'] = [None]
-    agent = InvoiceAgent(tools, system='')
+    memory = SqliteSaver.from_conn_string(":memory:")
+    agent = InvoiceAgent(tools, checkpointer=memory, system='')
     result = agent.graph.invoke(initial_state)
     print(result)
 

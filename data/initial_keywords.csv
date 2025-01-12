@@ -1,6 +1,6 @@
 subject,payment,download_method,sender,group
 FDC Invoice Dev,Manual,attachment,mariaka1@me.com,Maria Daycare
-Your Energy Locals Urban Invoice,Direct Debit,attachment,billing@urban.energylocals.com.au,Energy Locals
+Your Energy Locals Urban Invoice,Direct Debit,email_body,billing@urban.energylocals.com.au,Energy Locals
 Sydney Water eBill,Bpay,email_body,sender@sydneywater.com.au,Sydney Water
 Uniti Retail Pty Ltd - Invoice,Manual,email_body,support@unitiinternet.com,Uniti Retail
 Telstra Upfront Mobile Plan,Credit Card,google_drive_file,google_drive_file,Telstra

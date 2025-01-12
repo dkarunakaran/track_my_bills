@@ -4,14 +4,12 @@ import os.path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-import sqlite3
 import csv
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import and_
 import time
 from datetime import datetime
 import pytz
-from agentic_framework.agent_state import InvoiceAgentState, BankInfoDict
 
 import sys
 parent_dir = ".."
@@ -24,6 +22,7 @@ import models.download_methods
 import models.keywords
 import models.payment_info
 import models.group
+import models.different_name
 
 
 
@@ -100,9 +99,10 @@ def authenticate(cfg):
 
   return creds
 
-def create_database():
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+def create_database(session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   models.base.Base.metadata.create_all(models.base.engine) 
   time.sleep(2)
   PaymentMethods = models.payment_methods.PaymentMethods
@@ -227,7 +227,6 @@ def create_database():
           else:
             raise Exception("No payment id found")
              
-
           # Get the download_id
           search_term = f"{row['download_method']}%"  # Search for names
           download = session.query(DownloadMethods).filter(DownloadMethods.name.like(search_term)).first() 
@@ -235,7 +234,6 @@ def create_database():
             download_id = download.id
           else:
             raise Exception("No payment id found")
-          
 
           # Create a new KW object
           kw = Keywords(subject=row['subject'],payment_method_id=payment_id,download_method_id=download_id,group_id=group_id,sender=row['sender'])
@@ -271,13 +269,15 @@ def create_database():
 
   session.close()
 
-def get_keywords_data_from_db():
+def get_keywords_data_from_db(session=None):
   subjects = []
   payment_methods = []
   download_methods = []
   senders = []
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   PaymentMethods = models.payment_methods.PaymentMethods
   DownloadMethods = models.download_methods.DownloadMethods
   Keywords = models.keywords.Keywords
@@ -299,8 +299,11 @@ def get_keywords_data_from_db():
 
   return subjects, payment_methods, download_methods, senders
 
-def content_entry_found(name, date, amount):
+def content_entry_found(name, date, amount, session=None):
   status = False
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   Session = sessionmaker(bind=models.base.engine)
   session = Session()
   Content = models.content.Content
@@ -310,13 +313,14 @@ def content_entry_found(name, date, amount):
   content_id = session.query(Content).filter(and_(Content.name.like(name_search_term), Content.date.like(date_search_term))).first() 
   if content_id:
     status = True
-  session.close()
 
   return status
    
-def insert_content(logger, data):
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+def insert_content(logger, data,session=None):
+
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   Content = models.content.Content
   group_id = get_group_from_keyword(data['kw_subject'], data['kw_sender'])
   if group_id:
@@ -327,59 +331,60 @@ def insert_content(logger, data):
     session.add(content)
     # Commit the changes to the database
     session.commit() 
-    session.close()
     logger.info("Data inserted to SQLite")
   else:
     logger.error("Failed to insert to SQLite due to unable to find the group_id")
      
-def get_group_from_keyword(subject, sender):
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+def get_group_from_keyword(subject, sender, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   Keywords = models.keywords.Keywords
   # Query data using 'like' and 'where'
   sub_search_term = f"%{subject}%"  # Search for subjects
   sender_search_term = f"%{sender}%"  # Search for sender
   keyword = session.query(Keywords).filter(and_(Keywords.subject.like(sub_search_term), Keywords.sender.like(sender_search_term))).first() 
-  session.close()
   if keyword:
     return keyword.group_id
   else:
     return None
 
-def get_payment_info(group_id):
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+def get_payment_info(group_id, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   PaymentInfo = models.payment_info.PaymentInfo
   paymentInfo = session.query(PaymentInfo).filter(PaymentInfo.group_id == group_id).first() 
-  session.close()
 
   return paymentInfo
 
-def update_payment_info(BankInfoDict):
+def update_payment_info(BankInfoDict, session=None):
   try:
-    Session = sessionmaker(bind=models.base.engine)
-    session = Session()
+    if session is None:
+      Session = sessionmaker(bind=models.base.engine)
+      session = Session()
     PaymentInfo = models.payment_info.PaymentInfo
     result = session.query(PaymentInfo).filter(and_(PaymentInfo.group_id == BankInfoDict['group_id'], PaymentInfo.type == BankInfoDict['type'])).update({"details":BankInfoDict['details'], 'group_id': BankInfoDict['group_id'], 'type': BankInfoDict['type']})
     session.commit()    
-    session.close()
   except Exception as err:
     print(f"Unexpected {err=}, {type(err)=}")
     result = None
       
   return result
 
-def get_all_contents():
-    Session = sessionmaker(bind=models.base.engine)
-    session = Session()
+def get_all_contents(session=None):
+    if session is None:
+      Session = sessionmaker(bind=models.base.engine)
+      session = Session()
     Content = models.content.Content
     contents = session.query(Content).filter(Content.processed == 0).all() 
 
     return contents
 
-def delete_content(id):
-    Session = sessionmaker(bind=models.base.engine)
-    session = Session()
+def delete_content(id, session=None):
+    if session is None:
+      Session = sessionmaker(bind=models.base.engine)
+      session = Session()
     Content = models.content.Content
     # Retrieve single record
     content = session.query(Content).filter(Content.id==1).first()
@@ -388,14 +393,14 @@ def delete_content(id):
     # Commit changes
     session.commit()
    
-def update_content(id):
+def update_content(id, session=None):
   try:
-    Session = sessionmaker(bind=models.base.engine)
-    session = Session()
+    if session is None:
+      Session = sessionmaker(bind=models.base.engine)
+      session = Session()
     Content = models.content.Content
     result = session.query(Content).filter(Content.id == id).update({"processed": 1})
     session.commit()
-    session.close()
   except Exception as err:
     print(f"Unexpected {err=}, {type(err)=}")
     result = None
@@ -403,35 +408,203 @@ def update_content(id):
   return result
 
 
-def get_all_contents_unfiltered():
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+def get_all_contents_unfiltered(session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   Content = models.content.Content
   contents = session.query(Content).all() 
 
   return contents
 
-def get_all_payment_methods():
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+def get_all_payment_methods(session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   PaymentMethods = models.payment_methods.PaymentMethods
   pms = session.query(PaymentMethods).all() 
 
   return pms
 
-def get_all_download_methods():
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+def get_all_download_methods(session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   DownloadMethods = models.download_methods.DownloadMethods
   dms = session.query(DownloadMethods).all() 
 
   return dms
 
-def get_all_groups():
-  Session = sessionmaker(bind=models.base.engine)
-  session = Session()
+def get_all_groups(session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
   Group = models.group.Group
   groups = session.query(Group).all() 
 
   return groups
+
+def insert_keyword_api(formData:dict, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  PaymentMethods = models.payment_methods.PaymentMethods
+  DownloadMethods = models.download_methods.DownloadMethods
+  Keywords = models.keywords.Keywords
+  Group = models.group.Group
+  # Get the Group id
+  search_term = f"{formData['group']}%"  # Search for names
+  group = session.query(Group).filter(Group.name.like(search_term)).first() 
+  group_id = group.id 
+
+  # Query data using 'like' and 'where'
+  sub_search_term = f"%{formData['subject']}%"  # Search for subjects
+  sender_search_term = f"%{formData['sender']}%"  # Search for sender
+  keyword_id = session.query(Keywords).filter(and_(Keywords.subject.like(sub_search_term), Keywords.sender.like(sender_search_term))).first() 
+
+  # No such keywords in the db 
+  if keyword_id is None:        
+    # Get the payment_id
+    search_term = f"{formData['payment_method']}%"  # Search for names
+    payment= session.query(PaymentMethods).filter(PaymentMethods.name.like(search_term)).first() 
+    if payment:
+      payment_id = payment.id
+    else:
+      raise Exception("No payment id found")
+        
+    # Get the download_id
+    search_term = f"{formData['download_method']}%"  # Search for names
+    download = session.query(DownloadMethods).filter(DownloadMethods.name.like(search_term)).first() 
+    if download:
+      download_id = download.id
+    else:
+      raise Exception("No download id found")
+    
+    # Create a new KW object
+    kw = Keywords(subject=formData['subject'],payment_method_id=payment_id,download_method_id=download_id,group_id=group_id,sender=formData['sender'])
+    # Add the new KW to the session
+    session.add(kw)
+    # Commit the changes to the database
+    session.commit() 
+    message = 'Form submitted successfully!'
+  else:
+    message = 'Data exists already'
+  
+  return message
+
+def insert_download_methods_api(download, session=None):
+
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  DownloadMethods = models.download_methods.DownloadMethods
+  # Query data using 'like' and 'where'
+  search_term = f"{download}%"  # Search for names
+  id = session.query(DownloadMethods).filter(DownloadMethods.name.like(search_term)).first() 
+  # No such method in the db 
+  if id is None:
+    # Create a new DM object
+    dm = DownloadMethods(name=download)
+    # Add the new DM to the session
+    session.add(dm)
+    # Commit the changes to the database
+    session.commit()   
+    message = 'Form submitted successfully!'
+  else:
+    message = 'Data exists already'
    
+  return message
+
+def insert_payment_methods_api(p_methods, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  PaymentMethods = models.payment_methods.PaymentMethods
+  # Query data using 'like' and 'where'
+  search_term = f"{p_methods}%"  # Search for names
+  id = session.query(PaymentMethods).filter(PaymentMethods.name.like(search_term)).first() 
+  # No such method in the db 
+  if id is None:
+    pm = PaymentMethods(name=p_methods)
+    session.add(pm)
+    session.commit()      
+    message = 'Form submitted successfully!'
+  else:
+    message = 'Data exists already'
+
+  return message
+
+def insert_group_api(group_name, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  Group = models.group.Group
+  # Query data using 'like' and 'where'
+  search_term = f"{group_name}%"  # Search for names
+  id = session.query(Group).filter(Group.name.like(search_term)).first() 
+  # No such method in the db 
+  if id is None:
+    # Create a new group object
+    gr = Group(name=group_name)
+    # Add the new group to the session
+    session.add(gr)
+    # Commit the changes to the database
+    session.commit()    
+    message = 'Form submitted successfully!'
+  else:
+    message = 'Data exists already'
+
+  return message
+
+def insert_new_name_api(new_name, group_id, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  DifferentName = models.different_name.DifferentName
+  # Query data using 'like' and 'where'
+  search_term = f"{new_name}"  # Search for names
+  name = session.query(DifferentName).filter(DifferentName.name.like(search_term)).first() 
+  if name is None:
+    dn = DifferentName(name=new_name, group_id=group_id)
+    session.add(dn)
+    session.commit()       
+    message = 'Form submitted successfully!'
+  else:
+    message = 'Data exists already'
+
+  return message
+
+def get_group_name(biller_name, session=None):
+  group_name = None
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  DifferentName = models.different_name.DifferentName
+  # Query data using 'like' and 'where'
+  search_term = f"{biller_name}%"  # Search for names
+  name = session.query(DifferentName).filter(DifferentName.name.like(search_term)).first() 
+  if name:
+    group_id = name.group_id
+    Group = models.group.Group
+    group = session.query(Group).filter(Group.id == group_id).first() 
+    group_name = group.name
+
+  return group_name
+
+def submit_as_paid(content_id, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  Content = models.content.Content
+  result = session.query(Content).filter(Content.id == content_id).update({"paid":1})
+  session.commit() 
+  print(result)
+  if result:
+    message = 'Paid status updated'
+  else:
+    message = 'Something gone wrong'
+  return message
+
+
+
+

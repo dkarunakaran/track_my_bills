@@ -69,10 +69,10 @@
               isValid = false
             }else if (field.name == 'download_methods' && field.value == -1){
               isValid = false
+            }else if (field.name == 'groups' && field.value == -1){
+              isValid = false
             }
-
           });
-
           if (isValid){
             $("#addNewItemModal").modal('hide'); 
             $('#action_2_spinner').removeClass('d-none');
@@ -117,7 +117,6 @@
               isValid = false
 
           });
-
           if (isValid){
             $("#addNewDownloadModal").modal('hide'); 
             $('#action_3_spinner').removeClass('d-none');
@@ -148,6 +147,7 @@
             alert("Some fields are empty!!!")
           }
         });
+
         $("#addPaymentEntryForm").submit(function(event) {
           event.preventDefault(); // Prevent default form submission
 
@@ -161,7 +161,6 @@
               isValid = false
 
           });
-
           if (isValid){
             $("#addNewPaymentModal").modal('hide'); 
             $('#action_4_spinner').removeClass('d-none');
@@ -192,6 +191,174 @@
             alert("Some fields are empty!!!")
           }
         });
+        
+        $("#adDeleteForm").submit(function(event) {
+          event.preventDefault(); // Prevent default form submission
+
+          // Get form data using serializeArray()
+          var formData = $(this).serializeArray();
+          var isValid = true
+          // Process form data
+          $.each(formData, function(index, field) {
+            console.log(field.name + ": " + field.value); 
+            if (field.name == 'delete_content' && field.value == -1){
+              isValid = false
+            }
+          });
+          if (isValid){
+            $("#adDeleteModal").modal('hide'); 
+            $('#action_5_spinner').removeClass('d-none');
+            // Example: Send data to server using AJAX
+            $.ajax({
+              type: "DELETE",
+              url: "/delete_content", 
+              data: formData,
+              success: function(response) {
+                // Handle successful response
+                console.log(response); 
+                // Handle success
+                $('#toastMessage').text(response.message); 
+                $('#toastContainer').toast('show');
+              },
+              error: function(xhr, status, error) {
+                // Handle errors
+                console.error('Error:', error);
+                $('#toastMessage').text(error);
+                $('#toastContainer').toast('show'); 
+              },
+              complete: function() {
+                  // Hide spinner after request completion
+                  $('#action_5_spinner').addClass('d-none'); 
+              }
+            });
+          }else {
+            alert("Some fields are empty!!!")
+          }
+        });
+
+        $("#addGroupEntryForm").submit(function(event) {
+          event.preventDefault(); // Prevent default form submission
+
+          // Get form data using serializeArray()
+          var formData = $(this).serializeArray();
+          var isValid = true
+          // Process form data
+          $.each(formData, function(index, field) {
+            console.log(field.name + ": " + field.value); 
+            if (field.value.length === 0) 
+              isValid = false
+
+          });
+          if (isValid){
+            $("#addGroupModal").modal('hide'); 
+            $('#action_6_spinner').removeClass('d-none');
+            // Example: Send data to server using AJAX
+            $.ajax({
+              type: "POST",
+              url: "/add_new_group_entry", 
+              data: formData,
+              success: function(response) {
+                // Handle successful response
+                console.log(response); 
+                // Handle success
+                $('#toastMessage').text(response.message); 
+                $('#toastContainer').toast('show');
+              },
+              error: function(xhr, status, error) {
+                // Handle errors
+                console.error('Error:', error);
+                $('#toastMessage').text(error);
+                $('#toastContainer').toast('show'); 
+              },
+              complete: function() {
+                  // Hide spinner after request completion
+                  $('#action_6_spinner').addClass('d-none'); 
+              }
+            });
+          }else {
+            alert("Some fields are empty!!!")
+          }
+        });
+
+        $("#addDuplicateEntryForm").submit(function(event) {
+          event.preventDefault(); // Prevent default form submission
+
+          // Get form data using serializeArray()
+          var formData = $(this).serializeArray();
+          var isValid = true
+
+          // Process form data
+          $.each(formData, function(index, field) {
+            console.log(field.name + ": " + field.value); 
+            if (field.value.length === 0) {
+              isValid = false
+            }else if (field.name == 'group' && field.value == -1){
+              isValid = false
+            }
+          });
+          if (isValid){
+            $("#addDuplicateModal").modal('hide'); 
+            $('#action_7_spinner').removeClass('d-none');
+            // Example: Send data to server using AJAX
+            $.ajax({
+              type: "POST",
+              url: "/add_new_name_under_group", 
+              data: formData,
+              success: function(response) {
+                // Handle successful response
+                console.log(response); 
+                // Handle success
+                $('#toastMessage').text(response.message); 
+                $('#toastContainer').toast('show');
+              },
+              error: function(xhr, status, error) {
+                // Handle errors
+                console.error('Error:', error);
+                $('#toastMessage').text(error);
+                $('#toastContainer').toast('show'); 
+              },
+              complete: function() {
+                  // Hide spinner after request completion
+                  $('#action_7_spinner').addClass('d-none'); 
+              }
+            });
+          }else {
+            alert("Some fields are empty!!!")
+          }
+        });
+
+        $("#addContentPaidForm").submit(function(event) {
+          event.preventDefault(); // Prevent default form submission
+          var isValid = true
+          // Get form data using serializeArray()
+          var formData = $(this).serializeArray();
+          if (isValid){
+            $.ajax({
+              type: "POST",
+              url: "/submit_as_paid", 
+              data: formData,
+              success: function(response) {
+                // Handle successful response
+                console.log(response); 
+                // Handle success
+                $('#toastMessage').text(response.message); 
+                $('#toastContainer').toast('show');
+              },
+              error: function(xhr, status, error) {
+                // Handle errors
+                console.error('Error:', error);
+                $('#toastMessage').text(error);
+                $('#toastContainer').toast('show'); 
+              },
+              complete: function() {
+                  // Hide spinner after request completion
+              }
+            });
+          }else {
+            alert("Some fields are empty!!!")
+          }
+        });
+
       });
     </script>
   </body>

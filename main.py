@@ -1,18 +1,17 @@
-from download import Download
-from generate import Generate
+from langgraph.checkpoint.sqlite import SqliteSaver
+from agentic_framework.invoice_agent import InvoiceAgent
+from agentic_framework.agent_tools import add_task_api_directly, update_sqlitedb_then_task_api
+from agentic_framework.agent_state import InvoiceAgentState
 
-def run():
-    download = Download()
-    generate = Generate()
-
-    # Read and process emails
-    download.get_emails()
-    
-    # Read and process drive files 
-    download.get_drive_files()
-
-    # Create the Task based on the processed data 
-    generate.task_API_operation()
+def run(session):
+    tools = [add_task_api_directly, update_sqlitedb_then_task_api]
+    initial_state = InvoiceAgentState()
+    initial_state['invoices_dict'] = [None]
+    initial_state['invoices_text'] = [None]
+    memory = SqliteSaver.from_conn_string(":memory:")
+    agent = InvoiceAgent(tools, checkpointer = None, session=session, system='')
+    result = agent.graph.invoke(initial_state)
+    print(result)
 
 
 

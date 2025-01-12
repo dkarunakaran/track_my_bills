@@ -60,7 +60,7 @@ WORKDIR /app
 # For kubernetes cron job
 COPY . .
 
-EXPOSE 5000
+EXPOSE 7000
 
 #For testing
 #CMD ["/bin/bash"]

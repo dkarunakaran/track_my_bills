@@ -3,7 +3,6 @@ from googleapiclient.errors import HttpError
 import base64
 from bs4 import BeautifulSoup
 import yaml
-from agent_state import InvoiceAgentState
 from itertools import compress 
 import time
 import re
@@ -196,10 +195,10 @@ def ollama_query(text):
 
     return chain.invoke({"context": text})
 
-def task_API_operation(logger, task_service):
+def task_API_operation(logger, task_service, session=None):
     try:
         _return = None
-        contents = utility.get_all_contents()
+        contents = utility.get_all_contents(session=session)
         logger.debug(f"Contents from SQLite: {contents}")
         if len(contents) > 0:
             tasklist_id = get_tasklist_id('Payment', task_service)
@@ -223,7 +222,7 @@ def task_API_operation(logger, task_service):
                         logger.debug(result)
                         # Insted delete, do the update operation
                         #self.delete_content(id=content[0])
-                        _return = utility.update_content(id=content.id)
+                        _return = utility.update_content(id=content.id, session=session)
                 logger.info("All Tasks are created/updated")
             except Exception as err:
                 logger.error(f"Unexpected {err=}, {type(err)=} at task_API_operation - first")

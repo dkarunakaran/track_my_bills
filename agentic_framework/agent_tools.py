@@ -1,6 +1,6 @@
 # Import things that are needed generically
 from langchain.tools import tool
-from agent_state import BankInfoDict
+from agentic_framework.agent_state import BankInfoDict
 import json
 
 import sys
