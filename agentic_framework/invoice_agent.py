@@ -4,7 +4,7 @@ from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, Too
 from langchain_ollama import ChatOllama
 import yaml
 from agentic_framework.agent_state import InvoiceAgentState
-from agentic_framework.agent_node_helper import process_email_checker, llm_query, get_the_text_data_email, get_JSON, task_API_operation
+from agentic_framework.agent_node_helper import process_email_checker, get_json_data_from_text_email, get_the_text_data_email, get_JSON, task_API_operation, get_drive_files, get_json_data_from_text_drive
 from googleapiclient.discovery import build
 import json
 import sys
@@ -77,7 +77,7 @@ class InvoiceAgent:
         text_data = None
         dict_data = None
         self.logger.info("Reading the email using GMAIL API")
-        subjects, payment_methods, download_methods, senders = utility.get_keywords_data_from_db(self.session)
+        subjects, _, _, senders = utility.get_keywords_data_from_db(self.session)
         # Authenticate with GOOGLE API
         creds = utility.authenticate(self.cfg)
         # Define GMAIL API service
@@ -92,7 +92,7 @@ class InvoiceAgent:
             txt = gmail_service.users().messages().get(userId='me', id=msg['id']).execute()
             # Use try-except to avoid any Errors
             try:
-                proceed, payment_method, download_method, subject, kw_subject, kw_sender = process_email_checker(subjects, payment_methods, download_methods, senders, txt)
+                proceed, payment_method, download_method, subject, kw_subject, kw_sender, keyword = process_email_checker(self.session, subjects, senders, txt)
                 self.logger.info(f"We have read: '{subject}'")
                 if proceed == True:
                     self.logger.info(f"Processing: '{subject}' started")
@@ -100,13 +100,9 @@ class InvoiceAgent:
 
                     # Get the text data from email
                     text_data = get_the_text_data_email(gmail_service, self.logger, self.cfg, msg, payload, download_method)
-                    
-                    # Find the payment method if it is empty
-                    find_payment_method = False
-                    if payment_method == "":
-                        find_payment_method = True
 
-                    biller_name, due_date, amount, payment_method = llm_query(self.logger, subjects, payment_methods, text_data, payment_method, find_payment_method)
+                    # This function extract the data using LLM
+                    biller_name, due_date, amount = get_json_data_from_text_email(self.logger, text_data)
                     group_name = utility.get_group_name(biller_name, session=self.session)
                     if group_name:
                         biller_name = group_name
@@ -129,7 +125,37 @@ class InvoiceAgent:
         
         return {'invoices_dict': return_dict, 'invoices_text':return_text}
 
-    def get_drive_invoice_node(self, state: InvoiceAgentState):\
+    def get_drive_invoice_node(self, state: InvoiceAgentState):
+        """
+        # Ref: https://medium.com/the-team-of-future-learning/integrating-google-drive-api-with-python-a-step-by-step-guide-7811fcd16c44
+        self.logger.info('Finding the folder id to get all files')
+        # Authenticate with GOOGLE API
+        creds = utility.authenticate(self.cfg)
+        # Define GMAIL API service
+        drive_service = self.google_api_authentication(type='DRIVE')
+
+        folder_id = None
+        results = drive_service.files().list(pageSize=20, fields="files(id, name)").execute() 
+        for item in results.get('files', []):
+            if item['name'] == self.cfg['GOOGLE_API']['drive_folder_name']:
+                folder_id = item['id']
+                self.logger.info('Found folder id')  
+                break
+
+        if folder_id is not None:
+            file_results = drive_service.files().list(
+                        pageSize=self.cfg['GOOGLE_API']['no_of_drive_files'],
+                        q="'" + folder_id + "'" + " in parents",
+                        fields="nextPageToken, files(id, name, mimeType)",
+                    ).execute()
+        files = file_results.get('files', [])
+        self.logger.debug(f"Found files:{files}")
+        if len(files) > 0:  
+            text_data = get_drive_files(drive_service, self.logger, self.cfg, files)
+            _return = get_json_data_from_text_drive(self.logger, self.session, text_data)
+        else:
+            self.logger.info(f"No files found")"""
+
         return {'invoices_dict': [None], 'invoices_text':[None]}
     
     def add_to_sqlite_db_node(self, state: InvoiceAgentState):

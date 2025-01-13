@@ -15,6 +15,11 @@ from langchain_ollama.llms import OllamaLLM
 import sys
 from pypdf import PdfReader
 import os
+import io
+from tqdm import tqdm
+from googleapiclient.http import MediaIoBaseDownload
+from PIL import Image
+import pytesseract
 
 parent_dir = ".."
 sys.path.append(parent_dir)
@@ -22,7 +27,7 @@ sys.path.append(parent_dir)
 import utility
 
 
-def process_email_checker(subjects, payment_methods, download_methods, senders, txt):
+def process_email_checker(session, subjects, senders, txt):
     # Get value of 'payload' from dictionary 'txt'
     payload = txt['payload']
     headers = payload['headers']
@@ -40,26 +45,21 @@ def process_email_checker(subjects, payment_methods, download_methods, senders, 
     proceed = False
     subject_found = [True if s in subject else False  for s in subjects]
     sender_found = [True if sen in sender else False  for sen in senders]
-    res_sub = list(compress(range(len(subject_found)), subject_found))
-    download_method = ""
-    payment_method = ""  
-    kw_sender = kw_subject = None
-    if len(res_sub) > 0:
-        method_index_sub = res_sub[0]
-        payment_method = payment_methods[method_index_sub]
-        download_method = download_methods[method_index_sub]
-        kw_subject = subjects[method_index_sub]
-
-    # You can have multiple senders, either from the company or I forward to the email, so relying on subject index is not practical
-    res_send = list(compress(range(len(sender_found)), sender_found))
-    if len(res_send) > 0:
-        method_index_send = res_send[0]
-        kw_sender = senders[method_index_send]
-
+    download_method = payment_method = ""
+    keyword = kw_sender = kw_subject = None
     if True in subject_found and True in sender_found:
         proceed = True
+        #Get Payment Method and Download Method 
+        keyword = utility.get_keyword_subject_sender(subject, sender, session)
+        if keyword != None:
+            dm = utility.get_download_method(keyword.download_method_id, session)
+            pm = utility.get_payment_method(keyword.payment_method_id, session)
+            download_method = dm.name
+            payment_method = pm.name
+            kw_subject = keyword.subject 
+            kw_sender = keyword.sender 
     
-    return proceed, payment_method, download_method, subject, kw_subject, kw_sender
+    return proceed, payment_method, download_method, subject, kw_subject, kw_sender, keyword
 
 def get_data_email_body(part):
     text = ""
@@ -118,26 +118,19 @@ def get_the_text_data_email(gmail_service, logger, cfg, msg, payload, download_m
     return text
 
 
-def llm_query(logger, subjects_all, payment_methods_all, content, payment_method, find_payment_method = False):
+def get_json_data_from_text_email(logger, content):
+    result = llm_query(logger, content)
+    
+    return result['Biller_name'], result['Due_date'], result['Amount']
+
+def llm_query(logger, content):
     logger.info("Got the Data, now requesting LLM to extract the information")
     response = ollama_query(content)  
     logger.debug(f"data from LLM: {response}")
     result = get_JSON(response)
     logger.info(f"Got the JSON ecncoded data: {result}")
-    if find_payment_method == True:
-        logger.info("Searching for the payment method")
-        title = result['Biller_name']
-        # To find the payment method
-        title_found = [True if title in s else False  for s in subjects_all]
-        res_sub = list(compress(range(len(title_found)), title_found))
-        payment_method = ""
-        if len(res_sub) > 0:
-            method_index = res_sub[0]
-            payment_method = payment_methods_all[method_index]
-            logger.info(f"Found the payment method: {payment_method}")
 
-
-    return result['Biller_name'], result['Due_date'], result['Amount'], payment_method
+    return result 
 
 def get_JSON(response:str, logger=None): 
     try:
@@ -256,6 +249,91 @@ def get_task_id(logger, task_service, tasklist_id=None, task_name=None):
         
     return id
 
+def get_drive_files(drive_service, logger, cfg, files):
+    text = []
+    for file in files:
+        if str(file["mimeType"]) == str("application/pdf"):
+            logger.info(f"Downloading: {file['name']} is started") 
+            downloadfiles(drive_service, logger, cfg, file['id'], file['name'])
+            drive_service.files().delete(fileId=file['id']).execute()
+            logger.info(f"file: {file['name']} is deleted from Google Drive") 
+            file_path=cfg['dir']+"/"+file['name']
+            if os.path.exists(file_path):
+                logger.info(f"file: {file_path} is processing")
+                # Creating a pdf reader object
+                reader = PdfReader(file_path)
+                content = ""
+                for page in reader.pages:
+                    # Extracting text from page
+                    content += page.extract_text()
+                    content += '\n'
+                text.append(content)
+                os.remove(file_path)
+                logger.info(f"file: {file_path} is removed")  
 
+        if str(file["mimeType"]) == str("image/png"):
+            logger.info(f"Downloading: {file['name']} is started") 
+            downloadfiles(drive_service, logger, cfg, file['id'], file['name'])
+            drive_service.files().delete(fileId=file['id']).execute()
+            logger.info(f"File: {file['name']} is deleted from Google Drive") 
+            # perform OCR on the processed image
+            content = pytesseract.image_to_string(Image.open(cfg['dir']+"/"+file['name']))
+            text.append(content)
+            file_path=cfg['dir']+"/"+file['name']
+            os.remove(file_path)
+            logger.info(f"file: {file_path} is removed")  
 
+        if str(file["mimeType"]) == str("image/jpeg"):
+            logger.info(f"Downloading: {file['name']} is started") 
+            downloadfiles(drive_service, logger, cfg, file['id'], file['name'])
+            drive_service.files().delete(fileId=file['id']).execute()
+            logger.info(f"File: {file['name']} is deleted from Google Drive") 
+            file_path=cfg['dir']+"/"+file['name']
+            im = Image.open(file_path)
+            replace_path = cfg['dir']+"/"+"temp.png"
+            im.save(replace_path)
+            # perform OCR on the processed image
+            content = pytesseract.image_to_string(Image.open(replace_path))
+            text.append(content)
+            os.remove(file_path)
+            os.remove(replace_path)
+            logger.info(f"file: {file_path} is removed")  
 
+    return text
+
+def downloadfiles(drive_service, logger, cfg, file_id, dfilespath):
+    folder = cfg['dir']
+    request = drive_service.files().get_media(fileId=file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    pbar = tqdm(total=100, ncols=70)
+    while done is False:
+        status, done = downloader.next_chunk()
+        if status:
+            pbar.update(int(status.progress() * 100) - pbar.n)
+    pbar.close()
+    with io.open(folder + "/" + dfilespath, "wb") as f:
+        fh.seek(0)
+        f.write(fh.read())
+    logger.info(f"Downloading: {dfilespath} is finished") 
+
+def get_json_data_from_text_drive(logger, session, text_data):
+    _return = []
+    for content in text_data:
+        group_id = None
+        result = llm_query(logger, content)
+        title = result['Biller_name']
+        keyword = utility.get_keyword_on_title(title, session)
+        if keyword is None:
+            differentName = utility.get_different_names_on_title(title, session)
+            if differentName != None:
+                group_id = differentName.group_id
+        else:
+            group_id = keyword.group_id
+        if group_id != None:
+            pass
+    return _return
+            
+    
+    

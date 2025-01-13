@@ -10,6 +10,7 @@ from sqlalchemy import and_
 import time
 from datetime import datetime
 import pytz
+from typing import Optional
 
 import sys
 parent_dir = ".."
@@ -299,6 +300,17 @@ def get_keywords_data_from_db(session=None):
 
   return subjects, payment_methods, download_methods, senders
 
+def get_keyword_subject_sender(subject, sender, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  Keywords = models.keywords.Keywords
+  #sub_search_term = f"%{subject}%"
+  sender_search_term = f"%{sender}%"
+  keyword = session.query(Keywords).filter(Keywords.sender.like(sender_search_term)).first() 
+  
+  return keyword
+
 def content_entry_found(name, date, amount, session=None):
   status = False
   if session is None:
@@ -316,13 +328,13 @@ def content_entry_found(name, date, amount, session=None):
 
   return status
    
-def insert_content(logger, data,session=None):
+def insert_content(logger, data, session=None):
 
   if session is None:
     Session = sessionmaker(bind=models.base.engine)
     session = Session()
   Content = models.content.Content
-  group_id = get_group_from_keyword(data['kw_subject'], data['kw_sender'])
+  group_id = get_group_from_keyword(data['kw_subject'], data['kw_sender'], session)
   if group_id:
     created_datetime = datetime.now(pytz.timezone('Australia/Sydney'))
     # Create a new content object
@@ -435,6 +447,24 @@ def get_all_download_methods(session=None):
 
   return dms
 
+def get_payment_method(id, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  PaymentMethods = models.payment_methods.PaymentMethods
+  pm = session.query(PaymentMethods).filter(PaymentMethods.id == id).first() 
+
+  return pm
+
+def get_download_method(id, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  DownloadMethods = models.download_methods.DownloadMethods
+  dm = session.query(DownloadMethods).filter(DownloadMethods.id == id).first() 
+
+  return dm
+
 def get_all_groups(session=None):
   if session is None:
     Session = sessionmaker(bind=models.base.engine)
@@ -460,10 +490,9 @@ def insert_keyword_api(formData:dict, session=None):
   # Query data using 'like' and 'where'
   sub_search_term = f"%{formData['subject']}%"  # Search for subjects
   sender_search_term = f"%{formData['sender']}%"  # Search for sender
-  keyword_id = session.query(Keywords).filter(and_(Keywords.subject.like(sub_search_term), Keywords.sender.like(sender_search_term))).first() 
-
+  keyword = session.query(Keywords).filter(and_(Keywords.subject.like(sub_search_term), Keywords.sender.like(sender_search_term))).first() 
   # No such keywords in the db 
-  if keyword_id is None:        
+  if keyword is None:        
     # Get the payment_id
     search_term = f"{formData['payment_method']}%"  # Search for names
     payment= session.query(PaymentMethods).filter(PaymentMethods.name.like(search_term)).first() 
@@ -598,12 +627,35 @@ def submit_as_paid(content_id, session=None):
   Content = models.content.Content
   result = session.query(Content).filter(Content.id == content_id).update({"paid":1})
   session.commit() 
-  print(result)
   if result:
     message = 'Paid status updated'
   else:
     message = 'Something gone wrong'
   return message
+
+def get_keyword_on_title(title, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  name_search_term = f"%{title}%"  # Search for sender
+  Keywords = models.keywords.Keywords
+  keyword = session.query(Keywords).filter(Keywords.subject.like(name_search_term)).first() 
+  
+  return keyword
+
+def get_different_names_on_title(title, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  name_search_term = f"%{title}%"  # Search for sender
+  DifferentName= models.different_name.DifferentName
+  differentName = session.query(DifferentName).filter(DifferentName.subject.like(name_search_term)).first() 
+  
+  return differentName
+
+
+
+
 
 
 
