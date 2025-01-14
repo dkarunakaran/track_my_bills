@@ -79,8 +79,12 @@ def get_the_text_data_email(gmail_service, logger, cfg, msg, payload, download_m
     multiple_pdf_data = []
     path = None
     for part in payload['parts']:
-        if part['mimeType'] == 'text/plain' and download_method == 'email_body':
-            text = utility.get_data_email_body()
+        if part['mimeType'] == 'text/html' and download_method == 'email_body':
+            logger.debug("Getting the html from email_body")
+            text = get_data_email_body(part)
+        elif part['mimeType'] == 'text/plain' and download_method == 'email_body':
+            logger.debug("Getting the plain text from email_body")
+            text = get_data_email_body(part)
         elif part['mimeType'] == 'application/pdf':
             att_id = part['body']['attachmentId']
             response = gmail_service.users().messages().attachments().get(userId="me", messageId=msg['id'],id=att_id).execute()
@@ -118,10 +122,23 @@ def get_the_text_data_email(gmail_service, logger, cfg, msg, payload, download_m
     return text
 
 
-def get_json_data_from_text_email(logger, content):
+def get_json_data_from_text_email(logger, session, content, keyword, payment_method):
     result = llm_query(logger, content)
+    biller_name = result['Biller_name']
+    group_name = utility.get_group_name(biller_name, session=session)
+    if group_name:
+        biller_name = group_name
     
-    return result['Biller_name'], result['Due_date'], result['Amount']
+    _return = {
+        "Biller_name": biller_name,
+        "Due_date": result['Due_date'],
+        "Amount": str(result['Amount']).replace("$", "") ,
+        "payment_method": payment_method,
+        "kw_subject": keyword.subject,
+        "kw_sender": keyword.sender
+    }
+    
+    return _return
 
 def llm_query(logger, content):
     logger.info("Got the Data, now requesting LLM to extract the information")
@@ -204,7 +221,7 @@ def task_API_operation(logger, task_service, session=None):
                         date_format = '%Y-%m-%d'
                         date_obj = datetime.strptime(date_str, date_format).astimezone()
                         logger.debug(f"Date object: {date_obj.isoformat()}")
-                        notes = f"Amount: {content.amount}\nPayment: {content.payment}"
+                        notes = f"Amount: ${content.amount}\nPayment: {content.payment}"
                         taskdata = { 'title': content.name, 'due': date_obj.isoformat(),'notes': notes}
                         if task_id is None:
                             logger.info(f"TASK API insert operation of '{content.name}' started")
@@ -272,7 +289,7 @@ def get_drive_files(drive_service, logger, cfg, files):
                 logger.info(f"file: {file_path} is removed")  
 
         if str(file["mimeType"]) == str("image/png"):
-            logger.info(f"Downloading: {file['name']} is started") 
+            logger.info(f"Downloading png image: {file['name']} is started") 
             downloadfiles(drive_service, logger, cfg, file['id'], file['name'])
             drive_service.files().delete(fileId=file['id']).execute()
             logger.info(f"File: {file['name']} is deleted from Google Drive") 
@@ -284,7 +301,7 @@ def get_drive_files(drive_service, logger, cfg, files):
             logger.info(f"file: {file_path} is removed")  
 
         if str(file["mimeType"]) == str("image/jpeg"):
-            logger.info(f"Downloading: {file['name']} is started") 
+            logger.info(f"Downloading jpeg image: {file['name']} is started") 
             downloadfiles(drive_service, logger, cfg, file['id'], file['name'])
             drive_service.files().delete(fileId=file['id']).execute()
             logger.info(f"File: {file['name']} is deleted from Google Drive") 
@@ -320,19 +337,36 @@ def downloadfiles(drive_service, logger, cfg, file_id, dfilespath):
 
 def get_json_data_from_text_drive(logger, session, text_data):
     _return = []
-    for content in text_data:
-        group_id = None
-        result = llm_query(logger, content)
-        title = result['Biller_name']
-        keyword = utility.get_keyword_on_title(title, session)
-        if keyword is None:
-            differentName = utility.get_different_names_on_title(title, session)
-            if differentName != None:
-                group_id = differentName.group_id
-        else:
-            group_id = keyword.group_id
-        if group_id != None:
-            pass
+    try:
+        for content in text_data:
+            group_id = None
+            result = llm_query(logger, content)
+            title = result['Biller_name']
+
+            # Finding the keyword ang group object
+            keyword = utility.get_keyword_on_title(title, session)
+            if keyword is None:
+                differentName = utility.get_different_names_on_title(title, session)
+                if differentName != None:
+                    group_id = differentName.group_id
+            else:
+                group_id = keyword.group_id
+            if group_id != None:
+                group = utility.get_group_by_id(group_id, session=session)
+                if group:
+                    result['Biller_name'] = group.name
+                
+                pm = utility.get_payment_method_by_group_id(group_id, session)
+                if keyword is None:
+                    keyword = utility.get_keyword_by_group_id(group_id, session)
+                result['Amount'] = str(result['Amount']).replace("$", "")
+                result["payment_method"] = pm.name
+                result["kw_subject"] = keyword.subject
+                result["kw_sender"] = keyword.sender
+                _return.append(result)
+    except Exception as err:
+        logger.error(f"Unexpected {err=}, {type(err)=} at get_json_data_from_text_drive")
+        
     return _return
             
     

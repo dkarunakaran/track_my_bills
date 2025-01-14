@@ -26,10 +26,10 @@ session = Session()
 @app.route('/')
 def index():  
     try:
-        contents = utility.get_all_contents_unfiltered()
-        payment_methods = utility.get_all_payment_methods()
-        download_methods = utility.get_all_download_methods()
-        groups = utility.get_all_groups()
+        contents = utility.get_all_contents_unfiltered(session=session)
+        payment_methods = utility.get_all_payment_methods(session=session)
+        download_methods = utility.get_all_download_methods(session=session)
+        groups = utility.get_all_groups(session=session)
     except:
         contents = []
         payment_methods = []
@@ -58,7 +58,7 @@ def add_new_keyword_entry():
                 'sender': request.form.get('sender')
             }
             time.sleep(3)
-            message = utility.insert_keyword_api({form_data}, session=session)
+            message = utility.insert_keyword_api(form_data, session=session)
 
             return jsonify({'message': message}), 200
         except Exception as e:
@@ -142,5 +142,6 @@ def submit_as_paid_entry():
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 7000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    #port = int(os.environ.get('PORT', 7000))
+    #app.run(debug=True, host="0.0.0.0", port=port)
+    app.run(debug=False, host="0.0.0.0", port=7000)

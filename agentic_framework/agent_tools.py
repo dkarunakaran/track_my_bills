@@ -21,7 +21,6 @@ def update_sqlitedb_then_task_api(existing="", new=""):
     _return = ""
     # Sample data: '197954,7,77090066069,BPay'
     #               biller_code,group_id,reference_number,type
-    print(new)
     new_data = new.split(",")
     details = {}
     if new_data[3] == 'BPay':

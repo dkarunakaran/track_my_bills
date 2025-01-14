@@ -312,7 +312,7 @@ def get_keyword_subject_sender(subject, sender, session=None):
   return keyword
 
 def content_entry_found(name, date, amount, session=None):
-  status = False
+  content = None
   if session is None:
     Session = sessionmaker(bind=models.base.engine)
     session = Session()
@@ -322,11 +322,9 @@ def content_entry_found(name, date, amount, session=None):
   # Query data using 'like' and 'where'
   name_search_term = f"%{name}%"  
   date_search_term = f"%{date}%"  
-  content_id = session.query(Content).filter(and_(Content.name.like(name_search_term), Content.date.like(date_search_term))).first() 
-  if content_id:
-    status = True
+  content = session.query(Content).filter(and_(Content.name.like(name_search_term), Content.date.like(date_search_term))).first() 
 
-  return status
+  return content
    
 def insert_content(logger, data, session=None):
 
@@ -389,7 +387,7 @@ def get_all_contents(session=None):
       Session = sessionmaker(bind=models.base.engine)
       session = Session()
     Content = models.content.Content
-    contents = session.query(Content).filter(Content.processed == 0).all() 
+    contents = session.query(Content).all()#filter(Content.processed == 0).all() 
 
     return contents
 
@@ -405,19 +403,34 @@ def delete_content(id, session=None):
     # Commit changes
     session.commit()
    
-def update_content(id, session=None):
+def update_content(id, session=None, processed=1):
   try:
     if session is None:
       Session = sessionmaker(bind=models.base.engine)
       session = Session()
     Content = models.content.Content
-    result = session.query(Content).filter(Content.id == id).update({"processed": 1})
+    result = session.query(Content).filter(Content.id == id).update({"processed": processed})
     session.commit()
   except Exception as err:
     print(f"Unexpected {err=}, {type(err)=}")
     result = None
   
   return result
+
+def update_content_all_by_id(id, data, session=None):
+  try:
+    if session is None:
+      Session = sessionmaker(bind=models.base.engine)
+      session = Session()
+    Content = models.content.Content
+    result = session.query(Content).filter(Content.id == id).update({'name':data['Biller_name'], 'date':data['Due_date'], 'amount':data['Amount']})
+    session.commit()
+  except Exception as err:
+    print(f"Unexpected {err=}, {type(err)=}")
+    result = None
+  
+  return result
+
 
 
 def get_all_contents_unfiltered(session=None):
@@ -483,9 +496,11 @@ def insert_keyword_api(formData:dict, session=None):
   Keywords = models.keywords.Keywords
   Group = models.group.Group
   # Get the Group id
-  search_term = f"{formData['group']}%"  # Search for names
-  group = session.query(Group).filter(Group.name.like(search_term)).first() 
-  group_id = group.id 
+  group = session.query(Group).filter(Group.id == int(formData['group'])).first() 
+  if group:
+    group_id = group.id
+  else:
+    raise Exception("No group id found")
 
   # Query data using 'like' and 'where'
   sub_search_term = f"%{formData['subject']}%"  # Search for subjects
@@ -494,16 +509,14 @@ def insert_keyword_api(formData:dict, session=None):
   # No such keywords in the db 
   if keyword is None:        
     # Get the payment_id
-    search_term = f"{formData['payment_method']}%"  # Search for names
-    payment= session.query(PaymentMethods).filter(PaymentMethods.name.like(search_term)).first() 
+    payment= session.query(PaymentMethods).filter(PaymentMethods.id == int(formData['payment_method'])).first() 
     if payment:
       payment_id = payment.id
     else:
       raise Exception("No payment id found")
         
     # Get the download_id
-    search_term = f"{formData['download_method']}%"  # Search for names
-    download = session.query(DownloadMethods).filter(DownloadMethods.name.like(search_term)).first() 
+    download = session.query(DownloadMethods).filter(DownloadMethods.id == int(formData['download_method'])).first() 
     if download:
       download_id = download.id
     else:
@@ -620,6 +633,17 @@ def get_group_name(biller_name, session=None):
 
   return group_name
 
+def get_group_by_id(id, session=None):
+  group = None
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  
+  Group = models.group.Group
+  group = session.query(Group).filter(Group.id == id).first() 
+  
+  return group
+
 def submit_as_paid(content_id, session=None):
   if session is None:
     Session = sessionmaker(bind=models.base.engine)
@@ -652,6 +676,28 @@ def get_different_names_on_title(title, session=None):
   differentName = session.query(DifferentName).filter(DifferentName.subject.like(name_search_term)).first() 
   
   return differentName
+
+def get_payment_method_by_group_id(group_id, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  Keywords = models.keywords.Keywords
+  keyword = session.query(Keywords).filter(Keywords.id == group_id).first() 
+  PaymentMethods = models.payment_methods.PaymentMethods
+  pm = session.query(PaymentMethods).filter(PaymentMethods.id == keyword.payment_method_id).first()
+
+  return pm 
+
+
+def get_keyword_by_group_id(group_id, session=None):
+  if session is None:
+    Session = sessionmaker(bind=models.base.engine)
+    session = Session()
+  Keywords = models.keywords.Keywords
+  keyword = session.query(Keywords).filter(Keywords.id == group_id).first() 
+
+  return keyword
+
 
 
 

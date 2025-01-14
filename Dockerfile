@@ -54,13 +54,23 @@ RUN pip install langgraph-checkpoint-sqlite==2.0.1
 
 RUN pip install sqlalchemy==1.4.41
 RUN pip install -q -U google-generativeai
+RUN pip install fastapi uvicorn[standard] jinja2
+RUN pip install python-multipart
 
 WORKDIR /app
 
 # For kubernetes cron job
-COPY . .
+#COPY . .
 
 EXPOSE 7000
+
+
+# Install Supervisor
+#RUN pip install supervisor
+
+
+# Create a Supervisor configuration file
+#COPY supervisord.conf /app/supervisord.conf
 
 #For testing
 CMD ["/bin/bash"]

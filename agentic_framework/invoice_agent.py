@@ -72,6 +72,7 @@ class InvoiceAgent:
             return build("tasks", "v1", credentials=creds)
 
     def get_email_invoice_node(self, state: InvoiceAgentState):
+        self.logger.info("get_email_invoice_node started")
         return_dict = []
         return_text = []
         text_data = None
@@ -97,27 +98,12 @@ class InvoiceAgent:
                 if proceed == True:
                     self.logger.info(f"Processing: '{subject}' started")
                     payload = txt['payload']
-
                     # Get the text data from email
                     text_data = get_the_text_data_email(gmail_service, self.logger, self.cfg, msg, payload, download_method)
-
                     # This function extract the data using LLM
-                    biller_name, due_date, amount = get_json_data_from_text_email(self.logger, text_data)
-                    group_name = utility.get_group_name(biller_name, session=self.session)
-                    if group_name:
-                        biller_name = group_name
-                    
-                    dict_data = {
-                        'Biller_name': biller_name,
-                        'Due_date': due_date,
-                        'Amount': amount,
-                        'payment_method': payment_method,
-                        'kw_subject': kw_subject,
-                        'kw_sender': kw_sender
-                    }
+                    dict_data = get_json_data_from_text_email(self.logger, self.session, text_data, keyword, payment_method)
                     return_dict.append(dict_data)
                     return_text.append(text_data)
-
             except Exception as err:
                 self.logger.error(f"Unexpected {err=}, {type(err)=} at get_email_invoice_node")
                 return_dict.append(dict_data)
@@ -126,7 +112,9 @@ class InvoiceAgent:
         return {'invoices_dict': return_dict, 'invoices_text':return_text}
 
     def get_drive_invoice_node(self, state: InvoiceAgentState):
-        """
+        self.logger.info("get_drive_invoice_node started")
+        return_dict = []
+        return_text = []
         # Ref: https://medium.com/the-team-of-future-learning/integrating-google-drive-api-with-python-a-step-by-step-guide-7811fcd16c44
         self.logger.info('Finding the folder id to get all files')
         # Authenticate with GOOGLE API
@@ -151,23 +139,29 @@ class InvoiceAgent:
         files = file_results.get('files', [])
         self.logger.debug(f"Found files:{files}")
         if len(files) > 0:  
-            text_data = get_drive_files(drive_service, self.logger, self.cfg, files)
-            _return = get_json_data_from_text_drive(self.logger, self.session, text_data)
+            return_text = get_drive_files(drive_service, self.logger, self.cfg, files)
+            return_dict = get_json_data_from_text_drive(self.logger, self.session, return_text)
         else:
-            self.logger.info(f"No files found")"""
+            self.logger.info(f"No files found")
 
-        return {'invoices_dict': [None], 'invoices_text':[None]}
+        return {'invoices_dict': return_dict, 'invoices_text':return_text}
     
     def add_to_sqlite_db_node(self, state: InvoiceAgentState):
-        status = False
+        status = None
+        self.logger.info("add_to_sqlite_db_node started")
         for data in state['invoices_dict']:
             if isinstance(data, dict):
                 # DB insert operation
-                if utility.content_entry_found(data['Biller_name'], data['Due_date'], data['Amount']) == False:
-                    utility.insert_content(self.logger, data)
-                    status = True
+                content = utility.content_entry_found(data['Biller_name'], data['Due_date'], data['Amount'], session=self.session)
+                if content is None:
+                    self.logger.info("Data is not exist in SQLite, so we are running insert opertion")
+                    print(data)
+                    utility.insert_content(self.logger, data, session=self.session)
+                    status = "Done insert operation"
                 else:
-                    self.logger.info("Data is already exist in SQLite")
+                    self.logger.info("Data is already exist in SQLite, so we are running update operation")
+                    utility.update_content_all_by_id(content.id, data, session=self.session)
+                    status = "Done update operation"
             
         return {'add_sqlite_DB': status}
     
@@ -181,15 +175,17 @@ class InvoiceAgent:
                     self.logger.debug(f"Getting bank details for {invoice_data['kw_subject']} started")
                     group_id = utility.get_group_from_keyword(invoice_data['kw_subject'], invoice_data['kw_sender'])
                     paymentInfo = utility.get_payment_info(group_id)
-                    payment_info_prompt= f" Only give {paymentInfo.type} type and no other payment details needed."
-                    
-                    # Query the LLM to extract the bank info
-                    result = self.gen_ai_google.generate_content(self.cfg['invoice_agent']['prompt_for_bank_info']+data+payment_info_prompt)
-                    self.logger.debug(f"Data from Google AI Studio: {result}")
-                    json_data = get_JSON(result, logger=self.logger)
-                    if json_data:
-                        json_data['group_id'] = group_id
-                        return_data.append(json_data)
+                    if paymentInfo != None:
+                        payment_info_prompt= f" Only give {paymentInfo.type} type and no other payment details needed."
+                        # Query the LLM to extract the bank info
+                        result = self.gen_ai_google.generate_content(self.cfg['invoice_agent']['prompt_for_bank_info']+data+payment_info_prompt)
+                        self.logger.debug(f"Data from Google AI Studio: {result}")
+                        json_data = get_JSON(result, logger=self.logger)
+                        if json_data:
+                            json_data['group_id'] = group_id
+                            return_data.append(json_data)
+                        else:
+                            return_data.append(None)
                     else:
                         return_data.append(None)
                 else:
