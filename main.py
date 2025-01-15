@@ -19,8 +19,6 @@ def run(session):
     result = agent.graph.invoke(initial_state)
     print(result)
 
-
-
 if __name__ == '__main__':
 
     Session = sessionmaker(bind=models.base.engine)
