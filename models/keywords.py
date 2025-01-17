@@ -8,3 +8,4 @@ class Keywords(Base):
     payment_method_id = Column(Integer, ForeignKey('payment_methods.id'))
     download_method_id = Column(Integer, ForeignKey('download_methods.id'))
     sender = Column(String)
+    group_id = Column(Integer, ForeignKey('group.id'))

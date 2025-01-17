@@ -53,16 +53,19 @@ RUN pip install langgraph==0.2.60
 RUN pip install langgraph-checkpoint-sqlite==2.0.1
 
 RUN pip install sqlalchemy==1.4.41
+RUN pip install -q -U google-generativeai
+RUN pip install fastapi uvicorn[standard] jinja2
+RUN pip install python-multipart
+RUN apt-get install -y vim
+RUN apt-get update && apt-get install -y supervisor
+RUN pip install python-dotenv
 
 WORKDIR /app
 
-# For kubernetes cron job
-COPY . .
-
-EXPOSE 5000
+EXPOSE 8000
 
 #For testing
-CMD ["/bin/bash"]
+#CMD ["/bin/bash"]
 
 # For production
-#CMD ["python", "app.py"]
+CMD ["python", "app.py"]

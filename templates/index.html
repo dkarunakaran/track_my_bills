@@ -7,7 +7,6 @@
   </div>
 </nav>
 <div class="container text-center padding_top">
-
   <div class="row">
     <div class="col-8">
       <h5>Bill Details</h5>
@@ -20,36 +19,39 @@
             <th><p class="fs-6 fw-semibold">Due Date</p></th>
             <th><p class="fs-6 fw-semibold">Amount</p></th>
             <th><p class="fs-6 fw-semibold">Payment Method</p></th>
-            <th><p class="fs-6 fw-semibold">Paid</p></th>
+            <th><p class="fs-6 fw-semibold">Payment</p></th>
             <th><p class="fs-6 fw-semibold">Added to Task</p></th>
             <th><p class="fs-6 fw-semibold">Created date</p></th>
             </tr>
         </thead>
         <tbody>
-          {%for id, name, date, amount, payment, processed, paid, created_date in contents%}
+          {%for content in contents%}
           <tr>
-            <td> <p class="fs-6">{{id}}</p> </td>
-            <td> <p class="fs-6">{{name}}</p> </td>
-            <td> <p class="fs-6">{{date}}</p> </td>
-            <td> <p class="fs-6">{{amount}}</p> </td>
-            <td> <p class="fs-6">{{payment}}</p> </td>
+            <td> <p class="fs-6">{{content.id}}</p> </td>
+            <td> <p class="fs-6">{{content.name}}</p> </td>
+            <td> <p class="fs-6">{{content.date}}</p> </td>
+            <td> <p class="fs-6">${{content.amount}}</p> </td>
+            <td> <p class="fs-6">{{content.payment}}</p> </td>
             <td><p class="fs-6">
-              {% if paid %}
+              {% if content.paid %}
+                Done
+              {% else %}
+              <form id="addContentPaidForm">
+                <input type="hidden" name="content_id" value="{{content.id}}">
+                <button id="paid_button" class="btn btn-primary" type="submit">Press paid</button>
+              </form>
+              {% endif %}
+              </p>
+            </td>
+            <td><p class="fs-6">
+              {% if content.processed %}
                 True
               {% else %}
                 False
               {% endif %}
               </p>
             </td>
-            <td><p class="fs-6">
-              {% if processed %}
-                True
-              {% else %}
-                False
-              {% endif %}
-              </p>
-            </td>
-            <td> <p class="fs-6">{{created_date}}</p> </td>
+            <td> <p class="fs-6">{{content.created_date}}</p> </td>
           </tr>
           {%endfor%}
         </tbody>
@@ -58,6 +60,7 @@
     <div class="col-4">
       <h5> Action Panel</h5>
       <hr/>
+
       <div class="row padding_bottom">
         <div class="col-8">
         <button id="action_1" type="button" class="btn btn-primary">Get All Bills</button>
@@ -68,9 +71,10 @@
             </div>
         </div>
       </div>
+
       <div class="row padding_bottom">
         <div class="col-8">
-          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewItemModal">Add Kywrds</button>
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewItemModal">Add Keyword</button>
         </div>
         <div id="action_2_spinner" class="d-none col-4"> 
             <div class="spinner-border text-primary" role="status">
@@ -78,9 +82,10 @@
             </div>
         </div>
       </div>
+
       <div class="row padding_bottom">
         <div class="col-8">
-          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewDownloadModal">Add Dwnlod</button>
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewDownloadModal">Add Download</button>
         </div>
         <div id="action_3_spinner" class="d-none col-4"> 
             <div class="spinner-border text-primary" role="status">
@@ -88,9 +93,10 @@
             </div>
         </div>
       </div>
+
       <div class="row padding_bottom">
         <div class="col-8">
-          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewPaymentModal">Add Pymnt</button>
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addNewPaymentModal">Add Payment</button>
         </div>
         <div id="action_4_spinner" class="d-none col-4"> 
             <div class="spinner-border text-primary" role="status">
@@ -98,9 +104,10 @@
             </div>
         </div>
       </div>
+
       <div class="row padding_bottom">
         <div class="col-8">
-          <button id="action_5" type="button" class="btn btn-danger">Del Old Data</button>
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#adDeleteModal">Delete Old Data</button>
         </div>
         <div id="action_5_spinner" class="d-none col-4"> 
             <div class="spinner-border text-primary" role="status">
@@ -108,10 +115,89 @@
             </div>
         </div>
       </div>
-      
+
+      <div class="row padding_bottom">
+        <div class="col-8">
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addGroupModal">Add Parent group</button>
+        </div>
+        <div id="action_6_spinner" class="d-none col-4"> 
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+      </div>
+
+      <div class="row padding_bottom">
+        <div class="col-8">
+          <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addDuplicateModal">Add New Name under Group</button>
+        </div>
+        <div id="action_7_spinner" class="d-none col-4"> 
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
+
+<!-- Add Group Modal -->
+<div class="modal fade" id="addGroupModal" tabindex="-1" aria-labelledby="addGroupModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addGroupModalLabel">Add New Parent Group</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addGroupEntryForm">
+          <div class="mb-3">
+            <label class="form-label">Group</label>
+            <input type="text" class="form-control" name="group" id="group">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add New Duplicate Modal -->
+<div class="modal fade" id="addDuplicateModal" tabindex="-1" aria-labelledby="addDuplicateLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addDuplicateLabel">Add New Name under Parent Group</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addDuplicateEntryForm">
+          <div class="mb-3">
+            <label class="form-label">New name under parent group</label>
+            <input type="text" class="form-control" name="new_name" id="new_name">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Group</label>
+            <select name="group" class="form-select">
+              <option value="-1" selected>Open this select menu</option>
+              {%for grp in groups%}
+                <option value="{{grp.id}}">{{grp.name}}</option>
+              {%endfor%}
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div> 
 
 <!-- Add New Download Method Modal -->
 <div class="modal fade" id="addNewDownloadModal" tabindex="-1" aria-labelledby="addNewDownloadModalLabel" aria-hidden="true">
@@ -161,7 +247,7 @@
   </div>
 </div>
 
-<!-- Add New Entry Modal -->
+<!-- Add New KW Entry Modal -->
 <div class="modal fade" id="addNewItemModal" tabindex="-1" aria-labelledby="addNewItemModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -176,20 +262,29 @@
             <input type="text" class="form-control" name="subject" id="subject">
           </div>
           <div class="mb-3">
-            <label class="form-label">Payment Methods</label>
+            <label class="form-label">Payment Method</label>
             <select name="payment_methods" class="form-select">
               <option value="-1" selected>Open this select menu</option>
-              {%for id, name in payment_methods%}
-                <option value="{{id}}">{{name}}</option>
+              {%for pm in payment_methods%}
+                <option value="{{pm.id}}">{{pm.name}}</option>
               {%endfor%}
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Download Methods</label>
+            <label class="form-label">Download Method</label>
             <select name="download_methods" class="form-select">
               <option value="-1" selected>Open this select menu</option>
-              {%for id, name in download_methods%}
-                <option value="{{id}}">{{name}}</option>
+              {%for dm in download_methods%}
+                <option value="{{dm.id}}">{{dm.name}}</option>
+              {%endfor%}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Group</label>
+            <select name="groups" class="form-select">
+              <option value="-1" selected>Open this select menu</option>
+              {%for grp in groups%}
+                <option value="{{grp.id}}">{{grp.name}}</option>
               {%endfor%}
             </select>
           </div>
@@ -198,6 +293,34 @@
             <input type="text" class="form-control" name="sender" id="sender">
             <div id="textHelp" class="form-text">If you select 'google_drive_file', then add 'google_drive_file' here as well.</div>
           </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add New Delete Modal -->
+<div class="modal fade" id="adDeleteModal" tabindex="-1" aria-labelledby="adDeleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="adDeleteModalLabel">Delete the contents</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="adDeleteForm">
+          <div class="mb-3">
+            <label class="form-label">Contents</label>
+            <select name="delete_content" class="form-select">
+              <option value="-1" selected>Open this select menu</option>
+              {%for content in contents%}
+                <option value="{{content.id}}">{{content.name}}</option>
+              {%endfor%}
+            </select>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             <button type="submit" class="btn btn-primary">Submit</button>
