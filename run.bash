@@ -8,7 +8,7 @@ username=$(whoami)
 if [ "$username" == "beastan" ]; then
     echo "We are running the docker container on $username's computer."
     docker run -d --net host --gpus all -it -v /media/$username/projects/track_my_bills:/app track_my_bills
-elif [ "$username" == "serverettan" ]; then
+elif [ "$username" == "dhanoop" ]; then
     echo "We are running the docker container on $username's computer."
     docker run -d --net host --gpus all -it -v /home/$username/Documents/projects/track_my_bills:/app track_my_bills
 elif [ "$username" == "codespace" ]; then
