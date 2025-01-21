@@ -63,6 +63,9 @@ class Automation:
                 prompt2 = "" #" Only give the link and no other text."
                 # Query the LLM to extract the link
                 result_with_url = self.gen_ai_google.generate_content(prompt1+html_content+prompt2)
+
+                # Browser tools for langraph: https://python.langchain.com/docs/integrations/tools/playwright/
+
                 print(result_with_url)
                 
 
