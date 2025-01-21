@@ -66,6 +66,10 @@ RUN playwright install
 RUN playwright install-deps 
 RUN playwright install chrome
 
+RUN pip install langchain_community
+RUN pip install --upgrade --quiet  lxml
+RUN pip install langchain-openai
+
 
 WORKDIR /app
 
