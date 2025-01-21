@@ -1,0 +1,8 @@
+
+conda create --name track_my_bills python=3.12.5 pip
+
+pip install -r conda_requirements.txt 
+
+playwright install
+playwright install-deps 
+playwright install chrome

@@ -60,6 +60,13 @@ RUN apt-get install -y vim
 RUN apt-get update && apt-get install -y supervisor
 RUN pip install python-dotenv
 
+# For automation tasks
+RUN pip install pytest-playwright
+RUN playwright install
+RUN playwright install-deps 
+RUN playwright install chrome
+
+
 WORKDIR /app
 
 EXPOSE 8000

@@ -7,7 +7,7 @@ docker build -t track_my_bills .
 username=$(whoami)
 if [ "$username" == "beastan" ]; then
     echo "We are running the docker container on $username's computer."
-    docker run --net host --gpus all -it -v /media/$username/projects/track_my_bills:/app track_my_bills
+    docker run --net host --gpus all -it -v /media/$username/projects/track_my_bills:/app -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v /home/$username/.Xauthority:/root/.Xauthority track_my_bills
 elif [ "$username" == "dhanoop" ]; then
     echo "We are running the docker container on $username's computer."
     docker run --net host --gpus all -it -v /home/$username/Documents/projects/track_my_bills:/app track_my_bills

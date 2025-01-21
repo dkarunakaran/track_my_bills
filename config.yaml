@@ -2,7 +2,7 @@ maintainer: Dhanoop Karunakaran
 debug: False
 dir: '/app/pdfs'
 GOOGLE_API:
-  no_emails: 60
+  no_emails: 30
   subjects:
     - 'FDC Invoice Dev'
     - 'Your Energy Locals Urban Invoice'
