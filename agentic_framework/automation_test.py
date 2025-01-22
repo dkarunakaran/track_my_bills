@@ -8,24 +8,25 @@ from langchain_ollama import ChatOllama
 #from langchain_community.agent_toolkits import PlayWrightBrowserToolkit
 from langchain_community.tools.playwright.utils import create_sync_playwright_browser
 from langchain import hub
-from langchain.agents import AgentType, initialize_agent
 from langchain.agents import AgentExecutor, create_react_agent, create_openai_tools_agent
 from langchain_openai import ChatOpenAI
-import getpass
+from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
 import os
+
+#from langchain_community.agent_toolkits import PlayWrightBrowserToolkit #This is the replaced import
+from custom_playwright_toolkit import PlayWrightBrowserToolkit
+from langchain_community.tools.playwright.utils import (
+    create_sync_playwright_browser,  # A synchronous browser is available, though it isn't compatible with jupyter.\n",      },
+)
+from agent_node_helper import get_JSON
+
 
 import sys
 parent_dir = ".."
 sys.path.append(parent_dir)
 import utility
 import secret
-
-#from langchain_community.agent_toolkits import PlayWrightBrowserToolkit #This is the replaced import
-from custom_playwright_toolkit import PlayWrightBrowserToolkit
-
-from langchain_community.tools.playwright.utils import (
-    create_sync_playwright_browser,  # A synchronous browser is available, though it isn't compatible with jupyter.\n",      },
-)
+import google_ai_studio_services
 
 # Ref 1: https://medium.com/@abhyankarharshal22/mastering-browser-automation-with-langchain-agent-and-playwright-tools-c70f38fddaa6
 # Ref 2: 
@@ -50,26 +51,34 @@ class Automation:
         sync_browser = create_sync_playwright_browser()
         toolkit = PlayWrightBrowserToolkit.from_browser(sync_browser=sync_browser)
         self.tools = toolkit.get_tools()
-
-        #self.prompt = hub.pull("hwchase17/react")
-        self.prompt = hub.pull("hwchase17/openai-tools-agent")
+        self.prompt = hub.pull("ebahr/openai-tools-agent-with-context:3b3e6baf") 
+        self.conext_manger_model = google_ai_studio_services.GoogleAIStudioServices()
+        agent = create_openai_tools_agent(self.llm, self.tools, self.prompt)
+        self.agent_executor = AgentExecutor(agent=agent, tools=self.tools, verbose=True)
 
     def test(self):
-        agent = create_openai_tools_agent(self.llm, self.tools, self.prompt)
-        #agent = create_openai_tools_agent(self.model, self.tools, self.prompt)
-        agent_executor = AgentExecutor(agent=agent, tools=self.tools, verbose=True)
-        agent_executor.invoke({"input": "Go to https://www.google.com, search for Elon Musk and spaceX using Search label textarea HTML element you find from that page, click google search button and return the summary of results you get. Use fill tool to fill in fields and print out url at each step."})
+        # Context Manger 
+        system_message_context_manager = """
+            You are expert in finding the context on what is this user messgae about. We have three context: 'google search', 'arxiv search', and 'not found'. Select one of these. If you can't determine output then return as 'not found'. Return in JSON format an no other text required.
+            For example:
+            {
+                'context': 'arxiv search'
+            }
+        """
+        input_msg = """
+            Go to https://duckduckgo.com, search for insurance usecases in connected vehicles using input box you find from that page, click search button and return the summary of results you get. Use fill tool to fill in fields and print out url at each step.
+        """
 
-        """agent_chain = initialize_agent(
-            self.tools,
-            self.model,
-            agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True,
-        )
+        result = self.conext_manger_model.generate_content(system_message_context_manager+input_msg)
+        json_text = get_JSON(result)
+        self.logger.info(f"Context of the automation: {json_text['context']}")
+        context = ''
+        if json_text['context'] == 'google search':
+            context = "If it is google, look for textarea html element instead of input element for filling."
 
-        result = agent_chain.run("Go to https://python.langchain.com/v0.2/docs/integrations/toolkits/playwright/ and give me summary of all tools mentioned on the page you get. Print out url at each step.")
-        print(result)"""
         
+        self.agent_executor.invoke({"chat_history":[], "agent_scratchpad":"", "context": context,"input": input_msg})
+       
     
     def get_emails(self):
         result = self.gmail_service.users().messages().list(maxResults=self.cfg['GOOGLE_API']['no_emails'], userId='me').execute()
@@ -96,26 +105,29 @@ class Automation:
 
             # Code for getting only email we want to track
             proceed = False
-            subjects = ['Timesheets to sign for Kids Early Learning Family Day Care']
+            #subjects = ['Timesheets to sign for Kids Early Learning Family Day Care']
+            subjects = ['Open-Source Rival to OpenAI']
             subject_found = [True if s in subject else False  for s in subjects]
             if True in subject_found:
                 proceed = True
 
             if proceed:
                 self.logger.info(f"Processing: '{subject}' started")
-                data = payload['body']['data']
+                data = payload['parts'][0]['body']['data']
                 data = data.replace("-","+").replace("_","/")
                 decoded_data = base64.b64decode(data)
                 soup = BeautifulSoup(decoded_data , "lxml")
                 html_content = str(soup)            
-                prompt1 = "Extrach the link from this text:"
-                prompt2 = "" #" Only give the link and no other text."
+                #prompt1 = "Extrach the link from this text:"
+                #prompt2 = "" #" Only give the link and no other text."
                 # Query the LLM to extract the link
-                result_with_url = self.gen_ai_google.generate_content(prompt1+html_content+prompt2)
-
+                #result_with_url = self.gen_ai_google.generate_content(prompt1+html_content+prompt2)
                 # Browser tools for langraph: https://python.langchain.com/docs/integrations/tools/playwright/
+                #print(result_with_url)
 
-                print(result_with_url)
+                context = ""
+                input_msg = "GO through this content and find the url and navigate to the URLs in the content and summarise the text from there. As a final result, give list of urls in the content and their summary. Content:"+html_content
+                self.agent_executor.invoke({"chat_history":[], "agent_scratchpad":"", "context": context,"input": input_msg})
                 
 
 
@@ -132,4 +144,4 @@ class Automation:
 
 if __name__ == "__main__":
     automate = Automation()
-    automate.test()
+    automate.get_emails()

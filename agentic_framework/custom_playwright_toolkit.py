@@ -11,7 +11,7 @@ from langchain_community.tools.playwright.base import (
     BaseBrowserTool,
     lazy_import_playwright_browsers,
 )
-from langchain_community.tools.playwright.click import ClickTool
+#from langchain_community.tools.playwright.click import ClickTool
 from langchain_community.tools.playwright.current_page import CurrentWebPageTool
 from langchain_community.tools.playwright.extract_hyperlinks import (
     ExtractHyperlinksTool,
@@ -21,6 +21,8 @@ from langchain_community.tools.playwright.get_elements import GetElementsTool
 from langchain_community.tools.playwright.navigate import NavigateTool
 from langchain_community.tools.playwright.navigate_back import NavigateBackTool
 from fill import FillTool
+from custom_click import ClickTool
+
 
 # Ref 2: https://medium.com/@abhyankarharshal22/dynamic-browser-automation-with-langchain-agent-and-playwright-tools-fill-tool-implementation-5a4953d514ac
 
